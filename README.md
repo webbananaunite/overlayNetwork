@@ -1,4 +1,4 @@
-# blocks & overlayNetwork & Testy
+# BlockChain Library Suite
 [日本語](READMEjp.md)
 
 ## about blocks

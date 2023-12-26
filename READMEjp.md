@@ -1,4 +1,4 @@
-# blocks & overlayNetwork & Testy
+# BlockChain Library Suite
 
 ## blocks について
 blocks は中本智さんの論文に基づいて開発されたiOSライブラリです。
