@@ -106,7 +106,7 @@ public extension Data {
         {exponentOf2} is multiple of 8.
      */
     func modulo(exponentOf2: UInt) -> Data {
-        LogEssential()
+        Log()
         precondition(exponentOf2 % Data.ByteBits == 0, "exponentOf2 must multiple of 8.")
         /*
          if Data[UInt8] is Negative Value (if MSB is 00), Do Other Way.
@@ -242,10 +242,10 @@ public extension Data {
         if MostSignificantByte is UInt8(00), Indicate Negative Value.
      */
     func subtract(exponent: UInt) -> Data {
-        LogEssential()
+        Log()
         Dump(self)
         var newSelf = self
-        LogEssential(exponent)
+        Log(exponent)
         let index = UInt(Int(exponent) / Data.byteBits)
         let remainder = UInt8(0b01 << (exponent - index*8))
         Log(index)
@@ -286,7 +286,7 @@ public extension Data {
      */
     //New Type Rewrite function
     func decrement(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (Data, String) {Log("---")
-        LogEssential(index)
+        Log(index)
         Log(savedIndex)
         Dump(self)
         Log(decrementValue)
@@ -579,13 +579,13 @@ public extension Data {
      Regardless Negative, Positive.
      */
     func inRange(intervalType: Interval, to upperAddress: Data, about targetNode: Data) -> Bool {
-        LogEssential(intervalType)
-        LogEssential("lower:")
-        LogEssential(self.hex())
-        LogEssential("upper:")
-        LogEssential(upperAddress.hex())
-        LogEssential("about:")
-        LogEssential(targetNode.hex())
+        Log(intervalType)
+        Log("lower:")
+        Log(self.hex())
+        Log("upper:")
+        Log(upperAddress.hex())
+        Log("about:")
+        Log(targetNode.hex())
         if self == Data.DataNull {
             Log()
         } else {
@@ -614,7 +614,7 @@ public extension Data {
         var lastIndex = 0
 
         for index in (0..<indexMax).reversed() {
-            LogEssential("index: \(index)")
+            Log("index: \(index)")
             targetData = targetNode.count <= index ? Data.DataNull[0] : targetNode[index]
             lowerData = self.count <= index ? Data.DataNull[0] : self[index]
             upperData = upperAddress.count <= index ? Data.DataNull[0] : upperAddress[index]
@@ -867,9 +867,9 @@ public extension Data {
     }
 
     func inRange(intervalType: Interval, to upperAddress: Node?, about targetNode: Node?) -> Bool {
-        LogEssential()
+        Log()
         guard let targetNode = targetNode, let upperAddress = upperAddress else {
-            LogEssential()
+            Log()
             Log("the Node OutRange.")
             return false
         }

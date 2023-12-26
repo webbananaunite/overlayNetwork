@@ -219,7 +219,15 @@ open class Dht {
         let bootNodeTxtRecord = answer.filter {
             $0.components(separatedBy: "=")[0] == txtKey
         }.first
+        #if DEBUG
+        /*
+         #debug
+         You Have to Modify {bootnodes}' IP Address at following Line.
+         */
+        let bootnodes = ["192.168.0.34:8334"]
+        #else
         let bootnodes = bootNodeTxtRecord?.components(separatedBy: "=")[1].components(separatedBy: " ")
+        #endif
         Log(bootnodes ?? "")
         
         return bootnodes ?? []

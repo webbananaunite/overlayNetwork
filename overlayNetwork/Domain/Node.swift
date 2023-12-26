@@ -431,12 +431,12 @@ open class Node: ObservableObject, NodeProtocol {
      Predecessor & Finger Table.
      */
     open func storeFingerTable() {
-        Log()
+//        Log()
         var i = 0
         Finger.storeFirstLine()
-        Log("predecessor: \(self.predecessor?.ipAndPortString)")
+//        Log("predecessor: \(self.predecessor?.ipAndPortString)")
         if let predecessor = self.predecessor {
-            Log(predecessor.ipAndPortString)
+//            Log(predecessor.ipAndPortString)
             Finger.storePredecessor(predecessorIpAndPort: predecessor.ipAndPortString)
         }
         fingers.forEach { finger in

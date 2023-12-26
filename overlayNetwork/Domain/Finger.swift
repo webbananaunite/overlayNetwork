@@ -112,14 +112,14 @@ public class Finger: Equatable {
               }
             },\n
             """.utf8DecodedData!
-            Log("\(jsonData.utf8String ?? "")")
+//            Log("\(jsonData.utf8String ?? "")")
             try jsonData.append(to: url)
         } catch {
             Log("Save Json Error \(error)")
         }
     }
     public static func storePredecessor(predecessorIpAndPort: String) {
-        Log()
+//        Log()
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
             let jsonData: Data = """
@@ -127,7 +127,7 @@ public class Finger: Equatable {
               "predecessor": "\(predecessorIpAndPort)"
             },\n
             """.utf8DecodedData!
-            Log("\(jsonData.utf8String ?? "")")
+//            Log("\(jsonData.utf8String ?? "")")
             try jsonData.append(to: url)
         } catch {
             Log("Save Json Error \(error)")
