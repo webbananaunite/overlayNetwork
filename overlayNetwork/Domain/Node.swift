@@ -767,7 +767,7 @@ open class Node: ObservableObject, NodeProtocol {
             return nil
         }
         let data = datas[0]
-        let commandAndData = data.components(separatedBy: " ")  //これが問題 #now　""で囲まれたspaceは対象外とする or ok publish時にspaceをremoveする
+        let commandAndData = data.components(separatedBy: " ")
         Log(commandAndData)
         guard commandAndData.count == 3 else {  //3 fields: {Command} {Operands1st,2nd,3rd...} {Token}
             Log("Bad Operands \(commandAndData.count)")
