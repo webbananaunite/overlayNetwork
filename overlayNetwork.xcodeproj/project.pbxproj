@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		982AB69B2AB2D6BE008BD9C3 /* PeerConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 982AB6992AB2D6BE008BD9C3 /* PeerConnection.swift */; };
 		982AB69C2AB2D6BF008BD9C3 /* PeerListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 982AB69A2AB2D6BE008BD9C3 /* PeerListener.swift */; };
+		983359012B3A598200DBAAE1 /* READMEjp.md in Resources */ = {isa = PBXBuildFile; fileRef = 983358FE2B3A598200DBAAE1 /* READMEjp.md */; };
+		983359022B3A598200DBAAE1 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 983358FF2B3A598200DBAAE1 /* LICENSE */; };
+		983359032B3A598200DBAAE1 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 983359002B3A598200DBAAE1 /* README.md */; };
 		983592792B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983592782B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift */; };
 		98675B7F2AA8754C00078C3D /* Date+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98675B7E2AA8754C00078C3D /* Date+.swift */; };
 		986A3EA12B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A3EA02B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift */; };
@@ -35,6 +38,9 @@
 /* Begin PBXFileReference section */
 		982AB6992AB2D6BE008BD9C3 /* PeerConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnection.swift; sourceTree = "<group>"; };
 		982AB69A2AB2D6BE008BD9C3 /* PeerListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerListener.swift; sourceTree = "<group>"; };
+		983358FE2B3A598200DBAAE1 /* READMEjp.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = READMEjp.md; sourceTree = SOURCE_ROOT; };
+		983358FF2B3A598200DBAAE1 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
+		983359002B3A598200DBAAE1 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 		983592782B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OverlayNetworkBinaryAddress.swift; path = ../../OverlayNetworkBinaryAddress.swift; sourceTree = "<group>"; };
 		98675B7E2AA8754C00078C3D /* Date+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+.swift"; sourceTree = "<group>"; };
 		986A3EA02B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayNetworkAddressAsHexString.swift; sourceTree = "<group>"; };
@@ -89,6 +95,9 @@
 		986A891A2A8C4EDF00EA216C /* overlayNetwork */ = {
 			isa = PBXGroup;
 			children = (
+				983358FF2B3A598200DBAAE1 /* LICENSE */,
+				983359002B3A598200DBAAE1 /* README.md */,
+				983358FE2B3A598200DBAAE1 /* READMEjp.md */,
 				986A89332A8C511C00EA216C /* DomainService */,
 				986A89322A8C510800EA216C /* Domain */,
 				986A891B2A8C4EDF00EA216C /* overlayNetwork.h */,
@@ -210,6 +219,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				983359032B3A598200DBAAE1 /* README.md in Resources */,
+				983359022B3A598200DBAAE1 /* LICENSE in Resources */,
+				983359012B3A598200DBAAE1 /* READMEjp.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
