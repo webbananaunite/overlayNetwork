@@ -584,7 +584,6 @@ open class Node: ObservableObject, NodeProtocol {
      Nodeとしては使えない
      DHT address保存のために使う
      */
-    @available(iOS 15.0, *)
     required public init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) {
         guard dhtAddressAsHexString.isValid else {
             return nil

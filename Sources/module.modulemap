@@ -1,0 +1,9 @@
+module overlayNetwork {
+    export *
+}
+
+module overlayNetworkObjc {
+    header "headers/Dns.h"
+    header "headers/overlayNetwork.h"
+    export *
+}

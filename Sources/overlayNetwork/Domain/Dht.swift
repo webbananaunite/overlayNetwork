@@ -7,8 +7,8 @@
 //
 
 import Foundation
+import overlayNetworkObjc
 
-//@available(iOS 15.0, *)
 open class Dht {
     /*
      実際はDNSのTXTレコードからブートノードを取得する
@@ -211,7 +211,7 @@ open class Dht {
     }
 
     class func getBootNodes() -> [String] {
-        guard let answer = Dns.fetchTXTRecords(domain) else {
+        guard let answer = Dns.fetchTXTRecords(domain) as? [String] else {
             return []
         }
         Log(answer)

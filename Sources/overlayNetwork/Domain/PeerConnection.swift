@@ -15,7 +15,6 @@ import Network
  Thank:
  https://developer.apple.com/documentation/network/building_a_custom_peer-to-peer_protocol
  */
-@available(iOS 16.0, *)
 var sharedConnection: PeerConnection?
 
 public protocol PeerConnectionDelegate: AnyObject {
@@ -25,7 +24,6 @@ public protocol PeerConnectionDelegate: AnyObject {
     func displayAdvertiseError(_ error: NWError)
 }
 
-@available(iOS 16.0, *)
 open class PeerConnection {
     weak var delegate: PeerConnectionDelegate?
     var connection: NWConnection?
