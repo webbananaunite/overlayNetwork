@@ -7,32 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		982AB69B2AB2D6BE008BD9C3 /* PeerConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 982AB6992AB2D6BE008BD9C3 /* PeerConnection.swift */; };
-		982AB69C2AB2D6BF008BD9C3 /* PeerListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 982AB69A2AB2D6BE008BD9C3 /* PeerListener.swift */; };
-		983359012B3A598200DBAAE1 /* READMEjp.md in Resources */ = {isa = PBXBuildFile; fileRef = 983358FE2B3A598200DBAAE1 /* READMEjp.md */; };
-		983359022B3A598200DBAAE1 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 983358FF2B3A598200DBAAE1 /* LICENSE */; };
-		983359032B3A598200DBAAE1 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 983359002B3A598200DBAAE1 /* README.md */; };
-		983592792B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983592782B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift */; };
-		98675B7F2AA8754C00078C3D /* Date+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98675B7E2AA8754C00078C3D /* Date+.swift */; };
-		986A3EA12B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A3EA02B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift */; };
-		986A891D2A8C4EDF00EA216C /* overlayNetwork.docc in Sources */ = {isa = PBXBuildFile; fileRef = 986A891C2A8C4EDF00EA216C /* overlayNetwork.docc */; };
-		986A891E2A8C4EDF00EA216C /* overlayNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 986A891B2A8C4EDF00EA216C /* overlayNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		986A89392A8C51A000EA216C /* Dht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89342A8C51A000EA216C /* Dht.swift */; };
-		986A893A2A8C51A000EA216C /* AcceptStreaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89352A8C51A000EA216C /* AcceptStreaming.swift */; };
-		986A893B2A8C51A000EA216C /* IpaddressV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89362A8C51A000EA216C /* IpaddressV4.swift */; };
-		986A893C2A8C51A000EA216C /* Streaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89372A8C51A000EA216C /* Streaming.swift */; };
-		986A893D2A8C51A000EA216C /* Finger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89382A8C51A000EA216C /* Finger.swift */; };
-		986A89412A8C51CC00EA216C /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A893E2A8C51CC00EA216C /* Log.swift */; };
-		986A89422A8C51CC00EA216C /* Dns.h in Headers */ = {isa = PBXBuildFile; fileRef = 986A893F2A8C51CC00EA216C /* Dns.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		986A89432A8C51CC00EA216C /* Dns.mm in Sources */ = {isa = PBXBuildFile; fileRef = 986A89402A8C51CC00EA216C /* Dns.mm */; };
-		986A89452A8C52D200EA216C /* Node.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89442A8C52D200EA216C /* Node.swift */; };
-		986A894B2A8C534C00EA216C /* String+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89472A8C534C00EA216C /* String+.swift */; };
-		986A894C2A8C534C00EA216C /* Stream+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89482A8C534C00EA216C /* Stream+.swift */; };
-		986A894E2A8C534C00EA216C /* Data+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A894A2A8C534C00EA216C /* Data+.swift */; };
-		986A89512A8C545500EA216C /* Queue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A894F2A8C545500EA216C /* Queue.swift */; };
-		986A89522A8C545500EA216C /* Command.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89502A8C545500EA216C /* Command.swift */; };
-		986A89562A8C5B6300EA216C /* Resource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89552A8C5B6300EA216C /* Resource.swift */; };
-		986A89582A8C5C0E00EA216C /* Time.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986A89572A8C5C0E00EA216C /* Time.swift */; };
+		98DC8B992B3EC749009684DB /* OverlayNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 98DC8B982B3EC749009684DB /* OverlayNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,9 +19,7 @@
 		983592782B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OverlayNetworkBinaryAddress.swift; path = ../../OverlayNetworkBinaryAddress.swift; sourceTree = "<group>"; };
 		98675B7E2AA8754C00078C3D /* Date+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+.swift"; sourceTree = "<group>"; };
 		986A3EA02B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayNetworkAddressAsHexString.swift; sourceTree = "<group>"; };
-		986A89182A8C4EDF00EA216C /* overlayNetwork.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = overlayNetwork.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		986A891B2A8C4EDF00EA216C /* overlayNetwork.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = overlayNetwork.h; sourceTree = "<group>"; };
-		986A891C2A8C4EDF00EA216C /* overlayNetwork.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = overlayNetwork.docc; sourceTree = "<group>"; };
 		986A89342A8C51A000EA216C /* Dht.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dht.swift; sourceTree = "<group>"; };
 		986A89352A8C51A000EA216C /* AcceptStreaming.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AcceptStreaming.swift; sourceTree = "<group>"; };
 		986A89362A8C51A000EA216C /* IpaddressV4.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = IpaddressV4.swift; sourceTree = "<group>"; };
@@ -63,10 +36,12 @@
 		986A89502A8C545500EA216C /* Command.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Command.swift; sourceTree = "<group>"; };
 		986A89552A8C5B6300EA216C /* Resource.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Resource.swift; sourceTree = "<group>"; };
 		986A89572A8C5C0E00EA216C /* Time.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Time.swift; sourceTree = "<group>"; };
+		98DC8B962B3EC749009684DB /* OverlayNetwork.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OverlayNetwork.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		98DC8B982B3EC749009684DB /* OverlayNetwork.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OverlayNetwork.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		986A89152A8C4EDF00EA216C /* Frameworks */ = {
+		98DC8B932B3EC749009684DB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -80,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				986A891A2A8C4EDF00EA216C /* overlayNetwork */,
+				98DC8B972B3EC749009684DB /* OverlayNetwork */,
 				986A89192A8C4EDF00EA216C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -87,7 +63,7 @@
 		986A89192A8C4EDF00EA216C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				986A89182A8C4EDF00EA216C /* overlayNetwork.framework */,
+				98DC8B962B3EC749009684DB /* OverlayNetwork.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -101,7 +77,6 @@
 				986A89332A8C511C00EA216C /* DomainService */,
 				986A89322A8C510800EA216C /* Domain */,
 				986A891B2A8C4EDF00EA216C /* overlayNetwork.h */,
-				986A891C2A8C4EDF00EA216C /* overlayNetwork.docc */,
 			);
 			path = overlayNetwork;
 			sourceTree = "<group>";
@@ -149,37 +124,44 @@
 			path = Extension;
 			sourceTree = "<group>";
 		};
+		98DC8B972B3EC749009684DB /* OverlayNetwork */ = {
+			isa = PBXGroup;
+			children = (
+				98DC8B982B3EC749009684DB /* OverlayNetwork.h */,
+			);
+			path = OverlayNetwork;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		986A89132A8C4EDF00EA216C /* Headers */ = {
+		98DC8B912B3EC749009684DB /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				986A89422A8C51CC00EA216C /* Dns.h in Headers */,
-				986A891E2A8C4EDF00EA216C /* overlayNetwork.h in Headers */,
+				98DC8B992B3EC749009684DB /* OverlayNetwork.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		986A89172A8C4EDF00EA216C /* overlayNetwork */ = {
+		98DC8B952B3EC749009684DB /* OverlayNetwork */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 986A89212A8C4EDF00EA216C /* Build configuration list for PBXNativeTarget "overlayNetwork" */;
+			buildConfigurationList = 98DC8B9C2B3EC749009684DB /* Build configuration list for PBXNativeTarget "OverlayNetwork" */;
 			buildPhases = (
-				986A89132A8C4EDF00EA216C /* Headers */,
-				986A89142A8C4EDF00EA216C /* Sources */,
-				986A89152A8C4EDF00EA216C /* Frameworks */,
-				986A89162A8C4EDF00EA216C /* Resources */,
+				98DC8B912B3EC749009684DB /* Headers */,
+				98DC8B922B3EC749009684DB /* Sources */,
+				98DC8B932B3EC749009684DB /* Frameworks */,
+				98DC8B942B3EC749009684DB /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = overlayNetwork;
-			productName = overlayNetwork;
-			productReference = 986A89182A8C4EDF00EA216C /* overlayNetwork.framework */;
+			name = OverlayNetwork;
+			productName = OverlayNetwork;
+			productReference = 98DC8B962B3EC749009684DB /* OverlayNetwork.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
@@ -191,7 +173,7 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					986A89172A8C4EDF00EA216C = {
+					98DC8B952B3EC749009684DB = {
 						CreatedOnToolsVersion = 14.3;
 					};
 				};
@@ -209,50 +191,26 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				986A89172A8C4EDF00EA216C /* overlayNetwork */,
+				98DC8B952B3EC749009684DB /* OverlayNetwork */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		986A89162A8C4EDF00EA216C /* Resources */ = {
+		98DC8B942B3EC749009684DB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				983359032B3A598200DBAAE1 /* README.md in Resources */,
-				983359022B3A598200DBAAE1 /* LICENSE in Resources */,
-				983359012B3A598200DBAAE1 /* READMEjp.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		986A89142A8C4EDF00EA216C /* Sources */ = {
+		98DC8B922B3EC749009684DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				983592792B2AD143004FE940 /* OverlayNetworkBinaryAddress.swift in Sources */,
-				982AB69B2AB2D6BE008BD9C3 /* PeerConnection.swift in Sources */,
-				982AB69C2AB2D6BF008BD9C3 /* PeerListener.swift in Sources */,
-				986A893C2A8C51A000EA216C /* Streaming.swift in Sources */,
-				986A89562A8C5B6300EA216C /* Resource.swift in Sources */,
-				986A89512A8C545500EA216C /* Queue.swift in Sources */,
-				986A894C2A8C534C00EA216C /* Stream+.swift in Sources */,
-				986A89412A8C51CC00EA216C /* Log.swift in Sources */,
-				986A89582A8C5C0E00EA216C /* Time.swift in Sources */,
-				986A894E2A8C534C00EA216C /* Data+.swift in Sources */,
-				986A894B2A8C534C00EA216C /* String+.swift in Sources */,
-				986A89392A8C51A000EA216C /* Dht.swift in Sources */,
-				98675B7F2AA8754C00078C3D /* Date+.swift in Sources */,
-				986A89452A8C52D200EA216C /* Node.swift in Sources */,
-				986A89522A8C545500EA216C /* Command.swift in Sources */,
-				986A89432A8C51CC00EA216C /* Dns.mm in Sources */,
-				986A893B2A8C51A000EA216C /* IpaddressV4.swift in Sources */,
-				986A891D2A8C4EDF00EA216C /* overlayNetwork.docc in Sources */,
-				986A3EA12B2C09E5004D285D /* OverlayNetworkAddressAsHexString.swift in Sources */,
-				986A893D2A8C51A000EA216C /* Finger.swift in Sources */,
-				986A893A2A8C51A000EA216C /* AcceptStreaming.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -379,12 +337,11 @@
 			};
 			name = Release;
 		};
-		986A89222A8C4EDF00EA216C /* Debug */ = {
+		98DC8B9A2B3EC749009684DB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = "0.1 Alpha";
+				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = 8GS35C2LU7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -394,37 +351,32 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = "0.1 Alpha";
+				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
-				OTHER_LDFLAGS = (
-					"-l",
-					resolv,
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.webbanana.overlayNetwork;
+				PRODUCT_BUNDLE_IDENTIFIER = org.webbanana.OverlayNetwork;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		986A89232A8C4EDF00EA216C /* Release */ = {
+		98DC8B9B2B3EC749009684DB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = "0.1 Alpha";
+				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = 8GS35C2LU7;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -434,25 +386,21 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = "0.1 Alpha";
+				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
-				OTHER_LDFLAGS = (
-					"-l",
-					resolv,
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.webbanana.overlayNetwork;
+				PRODUCT_BUNDLE_IDENTIFIER = org.webbanana.OverlayNetwork;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -471,11 +419,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		986A89212A8C4EDF00EA216C /* Build configuration list for PBXNativeTarget "overlayNetwork" */ = {
+		98DC8B9C2B3EC749009684DB /* Build configuration list for PBXNativeTarget "OverlayNetwork" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				986A89222A8C4EDF00EA216C /* Debug */,
-				986A89232A8C4EDF00EA216C /* Release */,
+				98DC8B9A2B3EC749009684DB /* Debug */,
+				98DC8B9B2B3EC749009684DB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

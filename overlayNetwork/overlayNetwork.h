@@ -1,19 +1,18 @@
 //
-//  overlayNetwork.h
-//  overlayNetwork
+//  OverlayNetwork.h
+//  OverlayNetwork
 //
-//  Created by よういち on 2023/08/16.
+//  Created by よういち on 2023/12/29.
 //
 
 #import <Foundation/Foundation.h>
 
-//! Project version number for overlayNetwork.
-FOUNDATION_EXPORT double overlayNetworkVersionNumber;
+//! Project version number for OverlayNetwork.
+FOUNDATION_EXPORT double OverlayNetworkVersionNumber;
 
-//! Project version string for overlayNetwork.
-FOUNDATION_EXPORT const unsigned char overlayNetworkVersionString[];
+//! Project version string for OverlayNetwork.
+FOUNDATION_EXPORT const unsigned char OverlayNetworkVersionString[];
 
-// In this header, you should import all the public headers of your framework using statements like #import <overlayNetwork/PublicHeader.h>
+// In this header, you should import all the public headers of your framework using statements like #import <OverlayNetwork/PublicHeader.h>
 
-//#import "Dns.h"
-#import <overlayNetwork/Dns.h>
+
