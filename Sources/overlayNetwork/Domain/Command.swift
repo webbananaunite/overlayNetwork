@@ -430,6 +430,8 @@ public enum Command: String, CommandProtocol {
              Build Chord Finger Table
              */
         case .initFingerTable : //MARK: initFingerTable
+            //#now should modify for showing message as done inited finger table.
+            
             LogEssential("Do \(self.rawValue)")
             guard operandArray.count > 0, let babysitterNode = Node(ipAndPort: operandArray[0]) else {
                 Log()
