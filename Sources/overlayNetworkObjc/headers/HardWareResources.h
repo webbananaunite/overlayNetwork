@@ -9,5 +9,8 @@
 #define HardWareResources_h
 
 #include <stdio.h>
-
+#import <mach/mach.h>
+#import <assert.h>
+//float cpu_usage();
+float cpuUsageAsPercent();
 #endif /* HardWareResources_h */

@@ -17,3 +17,4 @@ FOUNDATION_EXPORT const unsigned char overlayNetworkVersionString[];
 
 //#import <overlayNetworkObjc/Dns.h>
 #import "Dns.h"
+#import "HardWareResources.h"
