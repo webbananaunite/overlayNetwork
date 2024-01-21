@@ -412,7 +412,7 @@ open class Node: ObservableObject, NodeProtocol {
 #endif
     }
     open func printFingerTableEssential() {
-#if DEBUG
+#if false
         print("Successor: \(self.successor?.ipAndPortString) Predecessor: \(self.predecessor?.ipAndPortString)")
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
         print("[start]     [interval]     [node]\n")
@@ -489,10 +489,11 @@ open class Node: ObservableObject, NodeProtocol {
         Log(jsonData[0])  //["predecessor": 192.168.0.3:8334]
         Log(jsonData[1])  //[ {Object},... ]
         Log(jsonData.count)
-        
         jsonData.forEach {
+#if false
             print($0)
             print("---\n")
+#endif
             let rows = $0 as [String: Any]
             Log(rows)
             if let predecessor = rows["predecessor"] as? String {
@@ -511,7 +512,7 @@ open class Node: ObservableObject, NodeProtocol {
                 }
             }
         }
-        Log("\(fingers.count) End deploy.")
+        LogEssential("\(fingers.count) End deploy.")
     }
 
     open var description: String {
@@ -629,7 +630,7 @@ open class Node: ObservableObject, NodeProtocol {
      ノードが受信した
      */
     open func received(from sentDataNodeIp: String, data: String) {
-        LogCommunicate("from: \(sentDataNodeIp) data: \(data)")
+        Log("from: \(sentDataNodeIp) data: \(data)")
         guard let (command, operand, token) = takeCommandAndData(data: data) else {
             return
         }
@@ -713,7 +714,7 @@ open class Node: ObservableObject, NodeProtocol {
     public func sendCommand(to ip: String, command: CommandProtocol, operand: String, token: String) {
         Log()
         let writingPort = Streaming()
-        LogCommunicate("writing ip:\(ip) to command:\(command.rawValue) with operand:\(operand)")
+        Log("writing ip:\(ip) to command:\(command.rawValue) with operand:\(operand)")
         writingPort.start(ip: ip, port: Node.myPort, tls: false) {
             socketHandle in
             Log()
@@ -729,7 +730,7 @@ open class Node: ObservableObject, NodeProtocol {
                 commandInstance = self.premiumCommand?.command(command.rawValue) ?? command
                 commandInstance = command
             }
-            LogCommunicate("to ip:\(ip) command:\(command.rawValue) operand:\(operand)")
+            Log("to ip:\(ip) command:\(command.rawValue) operand:\(operand)")
             Log(socketHandle)
             let result = writingPort.send(command: commandInstance, operand: operand, token: token)
             Log(result)
