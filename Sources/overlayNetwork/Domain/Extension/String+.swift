@@ -85,6 +85,10 @@ public extension String {
         Log(self.base64DecodedData?.utf8String ?? "")
         return self.base64DecodedData?.utf8String
     }
+    
+    var toCChar: [CChar]? {
+        self.cString(using: .utf8)  //[CChar]
+    }
 }
 
 public extension String {

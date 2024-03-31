@@ -17,12 +17,16 @@
  Should Set Xcode Build Setting
     Other Linker Flag
         -l resolv
+
+ About TXT Record Length:
+    Max 255 chars by TXT record String(""). And be Admitted Save Multiple String in TXT record as Separate Space.
  */
 + (NSArray<NSString *> *)fetchTXTRecords:(NSString *)domain
 {
     // declare buffers / return array
     NSMutableArray *answers = [NSMutableArray new];
     u_char answer[1024];
+//    u_char answer[2048];
     ns_msg msg;
     ns_rr rr;
 

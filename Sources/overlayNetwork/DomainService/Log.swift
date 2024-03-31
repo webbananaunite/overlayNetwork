@@ -15,12 +15,15 @@ public func Log(_ object: Any = "", functionName: String = #function, fileName: 
     /*
      Disable Logging in following Classes.
      */
-    if className == "Streaming.swift" {
-        return
-    }
-    if className == "Stream+.swift" {
-        return
-    }
+//    if className == "Streaming.swift" {
+//        return
+//    }
+//    if className == "Stream+.swift" {
+//        return
+//    }
+//    if className == "Socket.swift" {
+//        return
+//    }
     if className == "Data+.swift" {
         return
     }
@@ -74,17 +77,17 @@ public func Dump(_ object: Any = "", functionName: String = #function, fileName:
 }
 
 public func DumpEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if DEBUG
-//    let className = (fileName as NSString).lastPathComponent
-//    let formatter = DateFormatter()
-//    formatter.dateFormat = "HH:mm:ss"
-//    let dateString = formatter.string(from: Date())
-//    print("DE \(dateString) \(className) \(functionName) l.\(lineNumber)\n")
-////    print((object as! Data).count)
-//    if object is Data {
-//        dump((object as! NSData))
-//    } else {
-//        dump(object)
-//    }
+    #if false
+    let className = (fileName as NSString).lastPathComponent
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm:ss"
+    let dateString = formatter.string(from: Date())
+    print("DE \(dateString) \(className) \(functionName) l.\(lineNumber)\n")
+//    print((object as! Data).count)
+    if object is Data {
+        dump((object as! NSData))
+    } else {
+        dump(object)
+    }
     #endif
 }

@@ -19,37 +19,19 @@ open class Resource: Node {
         Dump(binaryAddress)
     }
     
-    required public convenience init?(ipAndPort: String) {
-        if let (ip, portNum) = Node.extractIpAndPort(ipAndPort) {
-            Log("\(ip), \(portNum)")
-            self.init(ip: ip, port: portNum)
-        } else {
-            return nil
-        }
-    }
-    required public init?(ip: IpaddressV4Protocol, port: Int = Node.myPort, premiumCommand: CommandProtocol = Command.other) {
-        Log()
-        super.init(ip: ip, port: port, premiumCommand: premiumCommand)
-    }
-    
-    /*
-     Nodeとしては使えない
-     DHT address保存のために使う
-     */
-    required public init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) {
-        super.init(dhtAddressAsHexString: dhtAddressAsHexString)
-    }
-    
     required public init(binaryAddress: OverlayNetworkBinaryAddress) {
         super.init(binaryAddress: binaryAddress)
     }
-
-    required public init?(binaryAddress: OverlayNetworkBinaryAddress, ip: IpaddressV4, port: Int = Node.myPort) {
-        super.init(binaryAddress: binaryAddress, ip: ip, port: port)
+    
+    required public init(binaryAddress: OverlayNetworkBinaryAddress, premiumCommand: CommandProtocol = Command.other) {
+        super.init(binaryAddress: binaryAddress, premiumCommand: premiumCommand)
     }
     
-    required public init?(binaryAddress: OverlayNetworkBinaryAddress, ip: IpaddressV4, port: Int = Node.myPort, premiumCommand: CommandProtocol = Command.other) {
-        super.init(binaryAddress: binaryAddress, ip: ip, port: port, premiumCommand: premiumCommand)
+    required public init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString, premiumCommand: CommandProtocol = Command.other) {
+        super.init(dhtAddressAsHexString: dhtAddressAsHexString, premiumCommand: premiumCommand)
     }
     
+    required public init?(ownNode ip: IpaddressV4Protocol, port: Int, premiumCommand: CommandProtocol = Command.other) {
+        super.init(ownNode: ip, port: port, premiumCommand: premiumCommand)
+    }
 }

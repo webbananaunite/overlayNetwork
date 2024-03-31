@@ -844,7 +844,7 @@ public extension Data {
                     Log()
                     Dump(targetData)
                     Dump(upperData)
-                    if targetData <= upperData {    //#pending この判定が間違っている
+                    if targetData <= upperData {
                         Log("Be in Range.")
                         Log("InRange.")
                         return true

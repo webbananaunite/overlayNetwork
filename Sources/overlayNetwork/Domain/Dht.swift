@@ -16,14 +16,11 @@ open class Dht {
      */
     static let domain = "webbanana.org"
 //    #if DEBUG
-    static let txtKey = "stagingbootnode"
+    static let txtKeyForBootNode = "stagingbootnode"
 //    #else
-//    static let txtKey = "bootnode"
+//    static let txtKeyForBootNode = "bootnode"
 //    #endif
-    
-    public init?() {
-        ownNode = Node(ip: IpaddressV4.null, port: 40)
-    }
+    static let txtKeyForSignaling = "signalingServerAddress"
 
     /*
      inprementation of Chord
@@ -56,13 +53,6 @@ open class Dht {
 //
     /*inprementation of Chord*/
 
-    //#unused
-    open class func getNodeDhtAddress(ip: IpaddressV4, port: Int) -> [Any] {
-        return queryNodeAddress()
-    }
-
-    var UpperNode = Node(ip: IpaddressV4.null, port: 1)
-    var LowerNode = Node(ip: IpaddressV4.null, port: 0)
     var ownNode: Node?
     
     /*
@@ -159,7 +149,11 @@ open class Dht {
      ↑先頭からのバイト境界で末尾を判断する
      */
     class func hash(ip: IpaddressV4Protocol, port: Int) -> (String?, Data)? {
-        let preHashData = ip.toString() + ":" + String(port)
+//        let preHashData = ip.toString() + ":" + String(port)
+        let preHashData = [ip.toString(), String(port), String(Int.random(in: Int.min...Int.max)), Date.now.utcTimeString].shuffled().reduce(into: "") {
+            $0 += $1
+        }
+        
         Log("preHashData:\(preHashData)")
         // Sha512ハッシュ値（バイナリ64バイト）をHex(0-F)文字列に変換
         let (hexString, hashed512bitData) = preHashData.hash()
@@ -186,51 +180,63 @@ open class Dht {
         return nil
     }
     
-    open class func getBabysitterNode(ownIpAddressString: String) -> Node? {
+    open class func getSignalingServer() -> (String, Int)? {
+        Log()
+        //get ip port from txt record.
+        let signalings = getBootNodesAndStagingServerAddress().1
+        guard signalings.count > 0 else {
+            return nil
+        }
+        guard let signalingServerIpAndPort = getBootNodesAndStagingServerAddress().1.randomElement() else {
+            return nil
+        }
+        let signalingServerIpAndPorts = signalingServerIpAndPort.components(separatedBy: ":")
+        guard let portNum = Int(signalingServerIpAndPorts[1]), let ip = IpaddressV4(ipAddressString: signalingServerIpAndPorts[0])?.toString() else {
+            return nil
+        }
+
+        return (ip, portNum)
+    }
+
+    open class func getBabysitterNode(ownOverlayNetworkAddress: String) -> Node? {
         //get node in bootNodes for round robin method.
-        let nodes = getBootNodes()
+        let nodes = getBootNodesAndStagingServerAddress().0
         guard nodes.count > 0 else {
             return nil
         }
-        guard let babysitterIpAndPort = getBootNodes().randomElement() else {
+        guard let babysitterOverlayNetworkAddress = nodes.randomElement() else {
             return nil
         }
-        let babysitterIpAndPorts = babysitterIpAndPort.components(separatedBy: ":")
-        guard let portNum = Int(babysitterIpAndPorts[1]), let ip = IpaddressV4(ipAddressString: babysitterIpAndPorts[0]) else {
-            return nil
-        }
-        
+
         /*
-         Own IP Address equal Boot node
+         Own Overlay Network Address equal Boot node
             then return nil
          */
-        if babysitterIpAndPorts[0] == ownIpAddressString {
+        Log(babysitterOverlayNetworkAddress)
+        Log(ownOverlayNetworkAddress)
+        if babysitterOverlayNetworkAddress == ownOverlayNetworkAddress {
             return nil
         }
-        return Node(ip: ip, port: portNum)
+        return Node(dhtAddressAsHexString: babysitterOverlayNetworkAddress)
     }
 
-    class func getBootNodes() -> [String] {
+    class func getBootNodesAndStagingServerAddress() -> ([String], [String]) {
         guard let answer = Dns.fetchTXTRecords(domain) as? [String] else {
-            return []
+            return ([], [])
         }
         Log(answer)
         //bootnodeを取得
         let bootNodeTxtRecord = answer.filter {
-            $0.components(separatedBy: "=")[0] == txtKey
+            $0.components(separatedBy: "=")[0] == txtKeyForBootNode
         }.first
-        #if DEBUG
-        /*
-         #debug
-         You Have to Modify {bootnodes}' IP Address at following Line.
-         */
-        let bootnodes = ["192.168.0.34:8334"]
-        #else
+        let stagingServerAddressTxtRecord = answer.filter {
+            $0.components(separatedBy: "=")[0] == txtKeyForSignaling
+        }.first
         let bootnodes = bootNodeTxtRecord?.components(separatedBy: "=")[1].components(separatedBy: " ")
-        #endif
         Log(bootnodes ?? "")
-        
-        return bootnodes ?? []
+        let stagingServers = stagingServerAddressTxtRecord?.components(separatedBy: "=")[1].components(separatedBy: " ")
+        Log(stagingServers ?? "")
+        return (bootnodes ?? [], stagingServers ?? [])
     }
 
     func holder(key: String) {

@@ -53,15 +53,6 @@ public class Finger: Equatable {
         return false
     }
     
-    /*
-     #test
-     */
-//    public func testSetNode() {
-//        Log(node?.description)
-//        self.node = Node(dhtAddressAsHexString: "1111111111b4fcdd28b33987751f821f251b61b7f16b31dbf38888e560a2ec0c1492fc41332ce86b330cc98cb2ac8bdcf482c61703ecfdcd58d7b94f2ae29876")
-//        Log(node?.description)
-//    }
-    
     private static let archivedDirectory = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true).first! + "/finger/"
     private static let archiveFile = "fingers.json"
     private static var archiveFilePath: String {
@@ -99,6 +90,19 @@ public class Finger: Equatable {
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
             
+//            let jsonData: Data = """
+//            {
+//              "index": \(index),
+//              "dhtAddressAsHexString": {
+//                "start": "\(self.start.dhtAddressAsHexString)",
+//                "interval": [
+//                    "\(self.interval[0].dhtAddressAsHexString)",
+//                    "\(self.interval[1].dhtAddressAsHexString)"
+//                ],
+//                "node": "\(self.node?.ipAndPortString ?? "")"
+//              }
+//            },\n
+//            """.utf8DecodedData!
             let jsonData: Data = """
             {
               "index": \(index),
@@ -108,25 +112,32 @@ public class Finger: Equatable {
                     "\(self.interval[0].dhtAddressAsHexString)",
                     "\(self.interval[1].dhtAddressAsHexString)"
                 ],
-                "node": "\(self.node?.ipAndPortString ?? "")"
+                "node": "\(self.node?.dhtAddressAsHexString ?? "")"
               }
             },\n
             """.utf8DecodedData!
+            
 //            Log("\(jsonData.utf8String ?? "")")
             try jsonData.append(to: url)
         } catch {
             Log("Save Json Error \(error)")
         }
     }
-    public static func storePredecessor(predecessorIpAndPort: String) {
-//        Log()
+    public static func storePredecessor(overlayNetworkAddress: OverlayNetworkAddressAsHexString) {
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
+//            let jsonData: Data = """
+//            {
+//              "predecessor": "\(predecessorIpAndPort)"
+//            },\n
+//            """.utf8DecodedData!
             let jsonData: Data = """
             {
-              "predecessor": "\(predecessorIpAndPort)"
+              "predecessor": {
+                "dhtAddressAsHexString": "\(overlayNetworkAddress.toString)"
             },\n
             """.utf8DecodedData!
+            
 //            Log("\(jsonData.utf8String ?? "")")
             try jsonData.append(to: url)
         } catch {
@@ -153,7 +164,7 @@ public class Finger: Equatable {
     }
 
     public func print() {
-#if false
+#if DEBUG
         Swift.print("---Stored-------\n")
         do {
             let result = try String(contentsOf: URL(fileURLWithPath: Finger.archiveFilePath), encoding: .utf8)

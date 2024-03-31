@@ -11,6 +11,9 @@ import Network
 import CryptoKit
 
 public protocol NodeProtocol: Equatable {
+    /*
+     Job Queue
+     */
     func enQueue(job: Job)
     func deQueue(token: String) -> (Job?, Queue.Status)
     func deQueueWithType(token: String, type: [Job.`Type`]?) -> (Job?, Queue.Status)
@@ -24,6 +27,15 @@ public protocol NodeProtocol: Equatable {
     func fetchFollowingJobs(token: String) -> [Job]?
 
     /*
+     Socket Queue (FIFO)
+     */
+    var socketQueues: Queue {
+        get set
+    }
+    func enQueue(socket job: Job)
+    func deQueue(for queueType: Queue.QueueType) -> Job?
+
+    /*
      Archive to Device's Store.
      */
     func storeFingerTable()
@@ -32,27 +44,18 @@ public protocol NodeProtocol: Equatable {
 
     func deployFingerTableToMemory()
 
-    init?(ipAndPort: String)
-
     static func extractIpAndPort(_ ipAndPort: String) -> (IpaddressV4, Int)?
 
-    init?(ip: IpaddressV4Protocol, port: Int, premiumCommand: CommandProtocol)
+    init?(ownNode ip: IpaddressV4Protocol, port: Int, premiumCommand: CommandProtocol)
 
-    init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString)
-    
-    init(binaryAddress: OverlayNetworkBinaryAddress)
+    init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString, premiumCommand: CommandProtocol)
 
-    init?(binaryAddress: OverlayNetworkBinaryAddress, ip: IpaddressV4, port: Int, premiumCommand: CommandProtocol)
+    init(binaryAddress: OverlayNetworkBinaryAddress, premiumCommand: CommandProtocol)
 
     func received(from sentDataNodeIp: String, data: String)
 
-    func sendCommand(to ip: String, command: CommandProtocol, operand: String, token: String)
-    
-    func replyCommand(to ip: String, command: CommandProtocol, operand: String, token: String)
-
     func takeCommandAndData(data: String) -> (String, String, String)?
 
-    static func askAllowingNetworkAccess()
     static func triggerLocalNetworkPrivacyAlert()
     static func addressesOfDiscardServiceOnBroadcastCapableInterfaces() -> [Data]
     func holder(of key: String) -> Node?
@@ -84,7 +87,8 @@ public protocol NodeProtocol: Equatable {
     func updateFingerTable(node: Node, i: Int, token: String) -> String?
 
     func stabilize()
-    
+    func replyStabilize(candidateSuccessor: Node)
+
     // node thinks it might be our predecessor.
     func notify(node: Node)
     
@@ -95,6 +99,7 @@ public protocol NodeProtocol: Equatable {
      Functions for Debugging
      */
     func printQueueEssential()
+    func printSocketQueue()
     func printQueue()
     func printQueue(job: Job?)
     func printFingerTable()
@@ -114,23 +119,35 @@ public protocol NodeProtocol: Equatable {
     var dhtAddressAsHexString: OverlayNetworkAddressAsHexString {  //binary address in Hexa decimal String
         get
     }
-    var ip: IpaddressV4Protocol {
+    var ip: IpaddressV4Protocol? {
         get
     }
-    var port: Int {
+    var port: Int? {
         get
     }
-    static var myPort: Int {
+    var publicAddress: (ip: String, port: Int)? {
         get
     }
+
     static var validMinimumPortNumber: Int {
         get
     }
+    var signalingServerAddress: (ip: String, port: Int)? {
+        get
+    }
+    var socketAddress :(ip: String, port: Int)? {
+        get
+    }
+    var socketHandle: Int32? {
+        get
+    }
+    func closeSocket(socketHandle: Int32)
+
     var runAsBootNode: Bool {
         get
     }
     
-    var ipAndPortString: String {
+    var ipAndPortString: String? {
         get
     }
     
@@ -142,7 +159,7 @@ public protocol NodeProtocol: Equatable {
         get
     }
     
-    var getIp: String {
+    var getIp: String? {
         get
     }
 
@@ -199,17 +216,41 @@ open class Node: ObservableObject, NodeProtocol {
     public var premiumCommand: CommandProtocol?
     
     public var binaryAddress: OverlayNetworkBinaryAddress  //[UInt8] 512 bit - Make IP+Port into Hash Data
-    public var dhtAddressAsHexString: any OverlayNetworkAddressAsHexString  //binary address As Hexa decimal String #now DHTアドレス生成方法検討（現在はプライベートIP＋ポート番号なので
-    public var ip: IpaddressV4Protocol
-    public var port: Int
-    public static let myPort = 8334
+    public var dhtAddressAsHexString: any OverlayNetworkAddressAsHexString  //binary address As Hexa decimal String
+    
+    public var ip: IpaddressV4Protocol?  //private address ip
+    public var port: Int?                //private address port
+    public var publicAddress: (ip: String, port: Int)?
+    
     public static let validMinimumPortNumber = 1024
+    
+    /*
+     Communicate with overlayNetwork Address
+     */
+    public var signalingServerAddress: (ip: String, port: Int)?
+    public var socketAddress :(ip: String, port: Int)? { //private address ip & port
+        get {
+            if let ip = self.ip?.toString(), let port = self.port {
+                return (ip: ip, port: port)
+            }
+            return nil
+        }
+    }
+    public var socketHandle: Int32?
+    public func closeSocket(socketHandle: Int32) {
+        self.socketHandle = nil
+        close(socketHandle)
+    }
+
     public var runAsBootNode: Bool {
         return babysitterNode == nil ? true : false
     }
     
-    public var ipAndPortString: String {
-        return ip.toString() + ":" + String(port)
+    public var ipAndPortString: String? {    //private address ip & port
+        if let ip = self.ip?.toString(), let port = self.port {
+            return ip + ":" + String(port)
+        }
+        return nil
     }
     
     public var hash: String {
@@ -220,8 +261,8 @@ open class Node: ObservableObject, NodeProtocol {
         return dhtAddressAsHexString
     }
     
-    public var getIp: String {
-        return ip.toString()
+    public var getIp: String? {  //private address ip & port
+        return ip?.toString()
     }
 
     /*inprementation of Chord*/
@@ -264,11 +305,33 @@ open class Node: ObservableObject, NodeProtocol {
     //previous node in id(hash) cirlcle
     open var predecessor: Node? {
         didSet {
-            Log("predecessor: \(predecessor?.ipAndPortString)")
+            Log("predecessor: \(predecessor?.dhtAddressAsHexString.toString)")
         }
     }
     
     open var babysitterNode: Node?       //Use as Taker     //Set at join()
+    
+    //MARK: - Socket Queue (FIFO)
+    public var socketQueues = Queue()
+    /*
+     Enqueue as Last Element.
+     */
+    open func enQueue(socket job: Job) {
+        Log(job.command)
+        self.socketQueues.enQueue(job: job)
+    }
+    /*
+     Dequeue First Element.
+     */
+    open func deQueue(for queueType: Queue.QueueType) -> Job? {
+        Log()
+        if queueType == .SocketCommunication {
+            return self.socketQueues.deQueue()
+        } else if queueType == .CommandOperation {
+            return self.queues.deQueue()
+        }
+        return nil
+    }
     
     //MARK: - Queue
     public var queues = Queue()
@@ -300,7 +363,34 @@ open class Node: ObservableObject, NodeProtocol {
             print("[\(queue.offset)]")
             print("time:\(queue.element.time)")
             print("command:\(queue.element.command)")
-            print("fromNodeIp:\(queue.element.fromNodeIp)")
+            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
+            print("operand:\(queue.element.operand)")
+            print("type:\(queue.element.type)")
+            print("result:\(queue.element.result)")
+            print("status:\(queue.element.status)")
+            print("token:\(queue.element.token)")
+            print("previousJobToken:\(queue.element.previousJobToken)")
+            print("nextJobToken:\(queue.element.nextJobToken)")
+            print("\n")
+        }
+        #endif
+    }
+    open func printSocketQueue() {
+        #if DEBUG
+        let className = (#file as NSString).lastPathComponent
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let dateString = formatter.string(from: Date())
+        print("PQ \(dateString) \(className) \(#function) l.\(#line)\n")
+        print("[PrintSocketQueue]")
+        print("Node: \(self.getIp)")
+        print("Queues: \(socketQueues.queues.count)")
+        socketQueues.queues.enumerated().forEach { queue in
+            print("\n")
+            print("[\(queue.offset)]")
+            print("time:\(queue.element.time)")
+            print("command:\(queue.element.command)")
+            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
             print("operand:\(queue.element.operand)")
             print("type:\(queue.element.type)")
             print("result:\(queue.element.result)")
@@ -323,7 +413,7 @@ open class Node: ObservableObject, NodeProtocol {
 //            print("[\(queue.offset)]")
 //            print("time:\(queue.element.time)")
 //            print("command:\(queue.element.command)")
-//            print("fromNodeIp:\(queue.element.fromNodeIp)")
+//            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
 //            print("operand:\(queue.element.operand)")
 //            print("type:\(queue.element.type)")
 //            print("result:\(queue.element.result)")
@@ -351,7 +441,7 @@ open class Node: ObservableObject, NodeProtocol {
         print("Node: \(self.getIp)")
         print("time:\(job.time)")
         print("command:\(job.command)")
-        print("fromNodeIp:\(job.fromNodeIp)")
+        print("fromOverlayNetworkAddress:\(job.fromOverlayNetworkAddress)")
         print("operand:\(job.operand)")
         print("type:\(job.type)")
         print("result:\(job.result)")
@@ -396,7 +486,7 @@ open class Node: ObservableObject, NodeProtocol {
     // MARK: - Finger Table
     open func printFingerTable() {
 #if DEBUG
-        print("Successor: \(self.successor?.ipAndPortString) Predecessor: \(self.predecessor?.ipAndPortString)")
+        print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
 #endif
 #if false
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
@@ -405,22 +495,22 @@ open class Node: ObservableObject, NodeProtocol {
         fingers.forEach { finger in
             print("row \(i)")
             print("own+2^\(i) to own+2^\(i+1))")
-            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)] [\(finger.node?.ipAndPortString)]\n")
+            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)] [\(finger.node?.dhtAddressAsHexString.toString)]\n")
             print("----------\n")
             i += 1
         }
 #endif
     }
     open func printFingerTableEssential() {
-#if false
-        print("Successor: \(self.successor?.ipAndPortString) Predecessor: \(self.predecessor?.ipAndPortString)")
+#if DEBUG
+        print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
         print("[start]     [interval]     [node]\n")
         var i: Int = 0
         fingers.forEach { finger in
             print("row \(i)")
             print("own+2^\(i) to own+2^\(i+1))")
-            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)] [\(finger.node?.ipAndPortString)]\n")
+            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)] [\(finger.node?.dhtAddressAsHexString.toString)]\n")
             print("----------\n")
             i += 1
         }
@@ -431,13 +521,10 @@ open class Node: ObservableObject, NodeProtocol {
      Predecessor & Finger Table.
      */
     open func storeFingerTable() {
-//        Log()
         var i = 0
         Finger.storeFirstLine()
-//        Log("predecessor: \(self.predecessor?.ipAndPortString)")
         if let predecessor = self.predecessor {
-//            Log(predecessor.ipAndPortString)
-            Finger.storePredecessor(predecessorIpAndPort: predecessor.ipAndPortString)
+            Finger.storePredecessor(overlayNetworkAddress: predecessor.dhtAddressAsHexString)
         }
         fingers.forEach { finger in
             finger.storeUp(index: i)
@@ -447,7 +534,7 @@ open class Node: ObservableObject, NodeProtocol {
     }
     open func printArchivedFingerTable() {
         #if DEBUG
-        print("Successor: \(self.successor?.ipAndPortString) Predecessor: \(self.predecessor?.ipAndPortString)")
+        print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         Log(fingers.count)
         if let finger = fingers.first {
             finger.print()
@@ -459,7 +546,7 @@ open class Node: ObservableObject, NodeProtocol {
         Log()
         Command.updateOthers.run(node: self, operands: [String(0)]) {
             a in
-            Log("Run [Update others] Command to \(self.ip.toString()).")
+            Log("Run [Update others] Command to \(self.ip?.toString()).")
         }
         #endif
     }
@@ -490,23 +577,23 @@ open class Node: ObservableObject, NodeProtocol {
         Log(jsonData[1])  //[ {Object},... ]
         Log(jsonData.count)
         jsonData.forEach {
-#if false
+#if true
             print($0)
             print("---\n")
 #endif
             let rows = $0 as [String: Any]
             Log(rows)
-            if let predecessor = rows["predecessor"] as? String {
+            if let predecessor = rows["predecessor"] as? [String: Any], let dhtAddressAsHexString = predecessor["dhtAddressAsHexString"] as? String {
                 Log()
-                if let predecessorNode = Node(ipAndPort: predecessor) {
-                    Log(predecessorNode.ipAndPortString)
+                if let predecessorNode = Node(dhtAddressAsHexString: dhtAddressAsHexString) {
+                    Log(predecessorNode.dhtAddressAsHexString)
                     self.predecessor = predecessorNode
                 }
             } else if let dhtAddressAsHexString = rows["dhtAddressAsHexString"] as? [String: Any], let start = dhtAddressAsHexString["start"] as? String, let interval = dhtAddressAsHexString["interval"] as? [String], let node = dhtAddressAsHexString["node"] as? String {
                 
                 Log()
                 if let start = Node(dhtAddressAsHexString: start), let intervalStart = Node(dhtAddressAsHexString: interval[0]), let intervalEnd = Node(dhtAddressAsHexString: interval[1]) {
-                    if let finger = Finger(start: start, interval: [intervalStart, intervalEnd], node: Node(ipAndPort: node)) {
+                    if let finger = Finger(start: start, interval: [intervalStart, intervalEnd], node: Node(dhtAddressAsHexString: node)) {
                         fingers.append(finger)
                     }
                 }
@@ -531,15 +618,6 @@ open class Node: ObservableObject, NodeProtocol {
     */
 
     // MARK: - Constructors
-    required public convenience init?(ipAndPort: String) {
-        if let (ip, portNum) = Node.extractIpAndPort(ipAndPort) {
-            Log("\(ip), \(portNum)")
-            self.init(ip: ip, port: portNum)
-        } else {
-            return nil
-        }
-    }
-
     public static func extractIpAndPort(_ ipAndPort: String) -> (IpaddressV4, Int)? {
         let ipAndPorts = ipAndPort.components(separatedBy: ":")
         guard ipAndPorts.count == 2 else {
@@ -556,10 +634,12 @@ open class Node: ObservableObject, NodeProtocol {
     }
     
     /*
+     Construct New Node for Own Node with Generating New DhtAddress.
+     
      Parameter 'command' for Extended Command.
      overlayNetwork.Command Normally
      */
-    required public init?(ip: IpaddressV4Protocol, port: Int = Node.myPort, premiumCommand: CommandProtocol = Command.other) {
+    required public init?(ownNode ip: IpaddressV4Protocol, port: Int, premiumCommand: CommandProtocol = Command.other) {
         Log()
         if ip.toString() == IpaddressV4.null.toString() {
             let nodeAddress = "00"   //initial value for lower node
@@ -569,9 +649,27 @@ open class Node: ObservableObject, NodeProtocol {
             guard let (nodeAddress, hashed512Data) = Dht.hash(ip: ip, port: port), let nodeAddress = nodeAddress else {
                 return nil
             }
-            
-            self.dhtAddressAsHexString = nodeAddress
-            self.binaryAddress = hashed512Data
+            /*
+             Test Mode
+             When Run As Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
+             */
+            let setArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
+            let envVar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
+            if setArgv || envVar != "" {
+                Log()
+                /*
+                 behavior as Boot Node.
+                 */
+                self.dhtAddressAsHexString = "988637f394e5c291fb7448a9e53bfc5f5fba73feb9ea57703d77b046ed20bab7a0d9f6b41467376ee0dfd25b48cd9a04ed81f0eb197dcfd6ef2532cf84e0f71c"
+                guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
+                    return nil
+                }
+                self.binaryAddress = binaryAddress
+            } else {
+                Log()
+                self.dhtAddressAsHexString = nodeAddress
+                self.binaryAddress = hashed512Data
+            }
         }
         self.ip = ip
         self.port = port
@@ -581,11 +679,7 @@ open class Node: ObservableObject, NodeProtocol {
         Dump(binaryAddress)
     }
     
-    /*
-     Nodeとしては使えない
-     DHT address保存のために使う
-     */
-    required public init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) {
+    required public init?(dhtAddressAsHexString: OverlayNetworkAddressAsHexString, premiumCommand: CommandProtocol = Command.other) {
         guard dhtAddressAsHexString.isValid else {
             return nil
         }
@@ -595,31 +689,18 @@ open class Node: ObservableObject, NodeProtocol {
         } else {
             self.binaryAddress = Data.DataNull
         }
-        self.ip = IpaddressV4.null
-        self.port = 0
+        self.premiumCommand = premiumCommand
     }
     
-    required public init(binaryAddress: OverlayNetworkBinaryAddress) {
-        Dump(binaryAddress)
-        self.dhtAddressAsHexString = binaryAddress.hexAsData()
-//        Log(self.dhtAddressAsHexString)
-        self.binaryAddress = binaryAddress
-        self.ip = IpaddressV4.null
-        self.port = 0
-    }
-
-    required public init?(binaryAddress: OverlayNetworkBinaryAddress, ip: IpaddressV4, port: Int = Node.myPort, premiumCommand: CommandProtocol = Command.other) {
+    required public init(binaryAddress: OverlayNetworkBinaryAddress, premiumCommand: CommandProtocol = Command.other) {
         self.dhtAddressAsHexString = binaryAddress.hexAsData()
         self.binaryAddress = binaryAddress
-        
-        self.ip = ip
-        self.port = port
         self.premiumCommand = premiumCommand
         Log("dhtAddressAsHexString:\(dhtAddressAsHexString) ip:\(ip) port:\(port)")
     }
     
     public var communicatable: Bool {
-        if self.ip.toString() == IpaddressV4.null.toString() {
+        if !self.dhtAddressAsHexString.isValid {
             return false
         }
         return true
@@ -629,8 +710,8 @@ open class Node: ObservableObject, NodeProtocol {
      MARK: - Callback Function Socket Received
      ノードが受信した
      */
-    open func received(from sentDataNodeIp: String, data: String) {
-        Log("from: \(sentDataNodeIp) data: \(data)")
+    open func received(from sentOverlayNetworkAddress: String, data: String) {
+        LogCommunicate("from: \(sentOverlayNetworkAddress) data: \(data)")
         guard let (command, operand, token) = takeCommandAndData(data: data) else {
             return
         }
@@ -641,9 +722,9 @@ open class Node: ObservableObject, NodeProtocol {
          
          Apply Dependency Injeciton for Premium Command
          */
-        Log(command)
+        LogCommunicate(command)
         var commandInstance: CommandProtocol? = Command(rawValue: command)
-        Log(commandInstance == nil ? "received premium Command" : "received overlay Command")
+        LogCommunicate(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
         if commandInstance == nil {
             Log()
             /*
@@ -654,7 +735,7 @@ open class Node: ObservableObject, NodeProtocol {
             Log(commandInstance)
         }
         var nodeProtocolSelf: any NodeProtocol = self
-        let nextOperand = commandInstance?.receive(node: &nodeProtocolSelf, operands: operand, from: sentDataNodeIp, token: token)
+        let nextOperand = commandInstance?.receive(node: &nodeProtocolSelf, operands: operand, from: sentOverlayNetworkAddress, token: token)
         
         guard let nextOperand = nextOperand else {Log()
             return
@@ -683,11 +764,11 @@ open class Node: ObservableObject, NodeProtocol {
             
             if let previousJob = self.fetchPreviousJobWithType(token: token, type: [.delegate, .local, .delegated]) {
                 Log("PreviousJob: \(previousJob.command) - \(previousJob.command.rawValue)")
-                Log("fromNodeIp: \(previousJob.fromNodeIp) - \(nextOperand) - \(previousJob.token)")
+                Log("fromOverlayNetworkAddress: \(previousJob.fromOverlayNetworkAddress) - \(nextOperand) - \(previousJob.token)")
                 //Send reply PREVIOUS command
-                previousJob.command.reply(node: self, to: previousJob.fromNodeIp, operand: nextOperand, token: previousJob.token) {
+                previousJob.command.reply(node: self, to: previousJob.fromOverlayNetworkAddress, operand: nextOperand, token: previousJob.token) {
                     a in
-                    Log("Sent reply to \(sentDataNodeIp)")
+                    Log("Sent reply to \(sentOverlayNetworkAddress)")
                 }
             } else {
                 Log("No PreviousJobs")
@@ -701,52 +782,10 @@ open class Node: ObservableObject, NodeProtocol {
             Log(command)
             self.printQueue(job: updatedJob)
             //Send reply command
-            (Command(rawValue: command) ?? Command.other).reply(node: self, to: sentDataNodeIp, operand: nextOperand, token: token) {
+            (Command(rawValue: command) ?? Command.other).reply(node: self, to: sentOverlayNetworkAddress, operand: nextOperand, token: token) {
                 a in
-                Log("Sent reply to \(sentDataNodeIp)")
+                Log("Sent reply to \(sentOverlayNetworkAddress)")
             }
-        }
-    }
-    
-    /*
-     Send Command by using Socket
-     */
-    public func sendCommand(to ip: String, command: CommandProtocol, operand: String, token: String) {
-        Log()
-        let writingPort = Streaming()
-        Log("writing ip:\(ip) to command:\(command.rawValue) with operand:\(operand)")
-        writingPort.start(ip: ip, port: Node.myPort, tls: false) {
-            socketHandle in
-            Log()
-            var commandInstance: CommandProtocol = command
-            if command.rawValue == "", let command = self.premiumCommand {
-                Log()
-                /*
-                 Won't be Use this.
-                 
-                 if Nothing in overlayNetwork Command,
-                 Use Appendix Premium Command.
-                 */
-                commandInstance = self.premiumCommand?.command(command.rawValue) ?? command
-                commandInstance = command
-            }
-            Log("to ip:\(ip) command:\(command.rawValue) operand:\(operand)")
-            Log(socketHandle)
-            let result = writingPort.send(command: commandInstance, operand: operand, token: token)
-            Log(result)
-            Darwin.close(socketHandle)
-        }
-    }
-    
-    public func replyCommand(to ip: String, command: CommandProtocol, operand: String, token: String) {
-        LogCommunicate("ip:\(ip) command:\(command.rawValue) operand:\(operand)")
-        let writingPort = Streaming()
-        writingPort.start(ip: ip, port: Node.myPort, tls: false) {
-            socketHandle in
-            Log(socketHandle)
-            let result = writingPort.reply(command: command, operand: operand, token: token)
-            Log(result)
-            Darwin.close(socketHandle)
         }
     }
 
@@ -760,7 +799,7 @@ open class Node: ObservableObject, NodeProtocol {
         Log()
         //check terminator
         Log(data)
-        let datas = data.components(separatedBy: Streaming.communicationTerminatorChar)
+        let datas = data.components(separatedBy: Socket.communicationTerminatorChar)
         Log(datas)
         guard datas[0].count >= 2 else {
             Log("Bad Data Terminator. \(datas[0].count)")
@@ -775,18 +814,6 @@ open class Node: ObservableObject, NodeProtocol {
         }
         Log()
         return (commandAndData[0], commandAndData[1], commandAndData[2])
-    }
-
-    //使用していない triggerLocalNetworkPrivacyAlert instead.
-    public static func askAllowingNetworkAccess() {
-        Log()
-        if let askNode = Node(ipAndPort: "192.168.0.34:8334") {
-            Log()
-            Command.other.send(node: askNode, to: askNode.getIp, operands: [""]) {
-                string in
-                Log(string)
-            }
-        }
     }
 
     //Thank: https://developer.apple.com/forums/thread/663768
@@ -909,7 +936,7 @@ open class Node: ObservableObject, NodeProtocol {
 //                return inChargingOfResources[hashedKey]
             } else {
                 Log()
-                Command.fetchResource.send(node: self, to: holder.getIp, operands: [hashedKey]) { string in
+                Command.fetchResource.send(node: self, to: holder.dhtAddressAsHexString, operands: [hashedKey]) { string in
                     Log(string)
                 }
             }
@@ -948,14 +975,14 @@ open class Node: ObservableObject, NodeProtocol {
         
         if let holder = holder(of: key) {
             Log()
-            return (false, holder.ipAndPortString, nil)
+            return (false, holder.dhtAddressAsHexString.toString, nil)
         }
         Log()
         return (false, nil, nil)
     }
     open func ownResponsibleNode(key: String) -> Bool {
         /*
-         if (precedessor, own]
+         if (predecessor, own]
             return resourceString
          else
             return nil
@@ -972,7 +999,7 @@ open class Node: ObservableObject, NodeProtocol {
     }
     open func ownResponsibleResource(key: String) -> (Bool, String?) {
         /*
-         if (precedessor, own]
+         if (predecessor, own]
             return resourceString
          else
             return nil
@@ -1026,7 +1053,7 @@ open class Node: ObservableObject, NodeProtocol {
      
      */
     open func join(babysitterNode: Node?) {
-        Log(babysitterNode?.ip as Any)
+        Log(babysitterNode?.dhtAddressAsHexString as Any)
         guard let babysitterNode = babysitterNode else {
             Log("Boot node")
             /*
@@ -1045,7 +1072,9 @@ open class Node: ObservableObject, NodeProtocol {
          */
         Log("Normal node")
         self.babysitterNode = babysitterNode
-        Command.initFingerTable.run(node: self, operands: [babysitterNode.ipAndPortString]) {
+        let dhtAddressAsHexString = babysitterNode.dhtAddressAsHexString.toString
+        Log(dhtAddressAsHexString)
+        Command.initFingerTable.run(node: self, operands: [dhtAddressAsHexString]) {
             string in
             Log(string)
         }
@@ -1143,7 +1172,7 @@ open class Node: ObservableObject, NodeProtocol {
             LogEssential("exceeded finger table range \(Node.FINGER_TABLE_INDEX_MAX): \(i)")
             return nil
         }
-        Log(babysitterNode.ip.toString())
+        Log(babysitterNode.dhtAddressAsHexString.toString)
         guard babysitterNode.communicatable else {
             return nil
         }
@@ -1214,7 +1243,7 @@ open class Node: ObservableObject, NodeProtocol {
                 Log()
             } else {
                 Log()
-                Command.initFingerTable.run(node: self, operands: [babysitterNode.ipAndPortString]) {
+                Command.initFingerTable.run(node: self, operands: [babysitterNode.dhtAddressAsHexString.toString]) {
                     string in
                     Log(string)
                 }
@@ -1224,9 +1253,9 @@ open class Node: ObservableObject, NodeProtocol {
              start ∉ [self, finger[i-1].node)
              */
             Log("start ∉ [self, finger[i-1].node) then Send FS Command to Babysitter Node.")
-            Command.findSuccessor.send(node: self, to: babysitterNode.ip.toString(), operands: [String(i), fingers[i].start.dhtAddressAsHexString.toString], previousToken: token) {
+            Command.findSuccessor.send(node: self, to: babysitterNode.dhtAddressAsHexString, operands: [String(i), fingers[i].start.dhtAddressAsHexString.toString], previousToken: token) {
                 a in
-                Log("Sent [Find Successor \(i)] Command to \(babysitterNode.ip.toString()).")
+                Log("Sent [Find Successor \(i)] Command to \(babysitterNode.ip?.toString()).")
             }
         }
         
@@ -1304,7 +1333,7 @@ open class Node: ObservableObject, NodeProtocol {
          */
         Command.closestPrecedingFinger.run(node: self, operands: [index, address.dhtAddressAsHexString.toString, ""], previousToken: token) {
             a in
-            Log("Run [Closest Preceding Finger] Command to \(self.ip.toString()).")
+            Log("Run [Closest Preceding Finger] Command to \(self.ip?.toString() ?? "").")
         }
         return nil
     }
@@ -1347,7 +1376,7 @@ open class Node: ObservableObject, NodeProtocol {
             i -= 1
         }
         LogEssential(i)
-        LogEssential(matchedFinger?.node?.ipAndPortString ?? "Missed matching")
+        LogEssential(matchedFinger?.node?.dhtAddressAsHexString ?? "Missed matching")
 
         /*
          Query successor to matchedFinger?.node
@@ -1390,9 +1419,9 @@ open class Node: ObservableObject, NodeProtocol {
 //                if previousJob.command == .closestPrecedingFinger {
 //                    if let previousJobResult = previousJob.result {
 //                        let operand = previousJobResult + "," + yourSuccessor.dhtAddress
-////                        Command.closestPrecedingFinger.reply(node: self, to: previousJob.fromNodeIp, operand: operand, token: token) {
+////                        Command.closestPrecedingFinger.reply(node: self, to: previousJob.fromOverlayNetworkAddress, operand: operand, token: token) {
 ////                            a in
-////                            Log("Sent [Closest Preceding Finger Reply] Command to \(previousJob.fromNodeIp).")
+////                            Log("Sent [Closest Preceding Finger Reply] Command to \(previousJob.fromOverlayNetworkAddress).")
 ////                        }
 //                        _ = self.setJobResult(token: previousJob.token, result: operand)
 //                    }
@@ -1402,31 +1431,31 @@ open class Node: ObservableObject, NodeProtocol {
     }
     
     //使用していない
-    func closestPrecedingFingerReply(precedingNode: Node, token: String) {
-        Log()
-        guard precedingNode.communicatable else {
-            return
-        }
-
-        if let job = self.fetchJob(token: token) {
-            let targetNodeDhtAddress = job.operand
-            if let targetNode = Node(ipAndPort: targetNodeDhtAddress) {
-                if precedingNode.haveBetweenWithSuccessor(about: targetNode) {   // if id ∈ (precedingNode, precedingNode.successor]
-                    //Found targetNode's predecessor == precedingNode
-                } else {
-                    //Retry
-                    // precedingNode was NOT targetNode's predecessor
-                    let (updatedJob,_) = self.deQueueWithType(token: token, type: nil)
-                    self.printQueue(job: updatedJob)
-                    //re delegate
-                    Command.closestPrecedingFinger.send(node: self, to: precedingNode.ip.toString(), operands: [job.operand], previousToken: job.previousJobToken) {
-                        a in
-                        Log("Sent [Closest Preceding Finger] Command to \(precedingNode.ip.toString()).")
-                    }
-                }
-            }
-        }
-    }
+//    func closestPrecedingFingerReply(precedingNode: Node, token: String) {
+//        Log()
+//        guard precedingNode.communicatable else {
+//            return
+//        }
+//
+//        if let job = self.fetchJob(token: token) {
+//            let targetNodeDhtAddress = job.operand
+//            if let targetNode = Node(ipAndPort: targetNodeDhtAddress) {
+//                if precedingNode.haveBetweenWithSuccessor(about: targetNode) {   // if id ∈ (precedingNode, precedingNode.successor]
+//                    //Found targetNode's predecessor == precedingNode
+//                } else {
+//                    //Retry
+//                    // precedingNode was NOT targetNode's predecessor
+//                    let (updatedJob,_) = self.deQueueWithType(token: token, type: nil)
+//                    self.printQueue(job: updatedJob)
+//                    //re delegate
+//                    Command.closestPrecedingFinger.send(node: self, to: precedingNode.ip.toString(), operands: [job.operand], previousToken: job.previousJobToken) {
+//                        a in
+//                        Log("Sent [Closest Preceding Finger] Command to \(precedingNode.ip.toString()).")
+//                    }
+//                }
+//            }
+//        }
+//    }
     
     /*
      Check Having between {self} and {toAddress} in Clockwise in Finger Table.
@@ -1603,9 +1632,9 @@ open class Node: ObservableObject, NodeProtocol {
              get first node preceding n
              */
             if let p = self.predecessor, p.getIp != self.getIp {
-                LogEssential("\(self.getIp) Call as my Predecessor to \(p.getIp).")
-                Log("\(p.getIp) != \(self.getIp)")
-                Command.updateFingerTable.send(node: self, to: p.ip.toString(), operands: [node.ipAndPortString, String(i)], previousToken: token) {
+//                LogEssential("\(self.getIp ?? "nil") Call as my Predecessor to \(p.getIp ?? "nil").")
+//                Log("\(p.getIp ?? "nil") != \(self.getIp ?? "nil")")
+                Command.updateFingerTable.send(node: self, to: p.dhtAddressAsHexString, operands: [node.dhtAddressAsHexString.toString, String(i)], previousToken: token) {
                     string in
                     Log(string)
                 }
@@ -1616,17 +1645,39 @@ open class Node: ObservableObject, NodeProtocol {
         }
         return String(i)
     }
-    
-    //periodically verify self’s immediate successor,
-    //and tell the successor about self.
+
+    /*
+     periodically verify self’s immediate successor,
+     and tell the successor about self.
+     
+     #now do every boot up
+     */
     public func stabilize() {
-        guard let x = self.successor?.predecessor else {
+//        guard let x = self.successor?.predecessor else {
+//            return
+//        }
+        guard let successorNodeIp = self.successor?.getIp else {
             return
         }
-        if haveBetweenWithSuccessor(about: x) {
-            self.successor = x
+        Command.queryYourPredecessor.send(node: self, to: successorNodeIp, operands: [""]) { a in
+            Log("Run [queryYourPredecessor] Command to \(successorNodeIp).")
         }
-        self.successor?.notify(node: self)
+    }
+    public func replyStabilize(candidateSuccessor: Node) {
+        Log()
+        if haveBetweenWithSuccessor(about: candidateSuccessor) {
+            /*
+             There is New Node for Own Node's Successor.
+             */
+            self.successor = candidateSuccessor
+        }
+//        self.successor?.notify(node: self)
+        guard let successorNodeOverlayNetworkAddress = self.successor?.dhtAddressAsHexString else {
+            return
+        }
+        Command.notifyPredecessor.send(node: self, to: successorNodeOverlayNetworkAddress, operands: [self.dhtAddressAsHexString.toString]) { a in
+            Log("Run [notifyPredecessor] Command to \(successorNodeOverlayNetworkAddress).")
+        }
     }
     
     // node thinks it might be our predecessor.

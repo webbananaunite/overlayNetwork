@@ -16,7 +16,7 @@ open class Job {
                 self._token = newValue
             } else {
                 self.time = Time.utcTimeString
-                let seed = [self.command.rawValue, self.fromNodeIp, self.toNodeIp, self.type.rawValue, self.time].reduce("") {
+                let seed = [self.command.rawValue, self.fromOverlayNetworkAddress.toString, self.toOverlayNetworkAddress.toString, self.type.rawValue, self.time].reduce("") {
                     $0 + $1
                 }
                 Log(seed)
@@ -33,8 +33,10 @@ open class Job {
     var command: CommandProtocol
     
     var operand: String
-    var fromNodeIp: String
-    var toNodeIp: String
+    
+    var fromOverlayNetworkAddress: OverlayNetworkAddressAsHexString
+    var toOverlayNetworkAddress: OverlayNetworkAddressAsHexString
+
     var type: Type
     
     public enum `Type`: String {
@@ -54,13 +56,13 @@ open class Job {
     var nextJobToken: String?
     var previousJobToken: String?
 
-    public init(command: CommandProtocol, operand: String, from fromIp: String, to toIp: String, type: Type, token: String? = nil, previousJobToken: String? = nil) {
+    public init(command: CommandProtocol, operand: String, from fromOverlayNetworkAddress: OverlayNetworkAddressAsHexString, to toOverlayNetworkAddress: OverlayNetworkAddressAsHexString, type: Type, token: String? = nil, previousJobToken: String? = nil) {
         Log(token)
         self.time = Time.utcTimeString  //will update at setting token.
         self.command = command
         self.operand = operand
-        self.fromNodeIp = fromIp
-        self.toNodeIp = toIp
+        self.fromOverlayNetworkAddress = fromOverlayNetworkAddress
+        self.toOverlayNetworkAddress = toOverlayNetworkAddress
         self.type = type
         
         self.previousJobToken = previousJobToken
@@ -76,7 +78,7 @@ open class Queue {
     var queues = [Job]()
     
     /*
-     Queue FIFO or Dequeue by matched token.
+     Queue FIFO (Append at Last) or Dequeue by matched token.
      
      Ordinally, let use the functions enQueue(), deQueue().
      */
@@ -132,6 +134,33 @@ open class Queue {
 
         return (nil, .notFound)
     }
+    /*
+     Queue FIFO, Dequeue at First.
+     */
+    public enum QueueType: Int {
+        case SocketCommunication = 1
+        case CommandOperation = 2
+    }
+    open func deQueue() -> Job? {
+        Log()
+        guard let firstElement = self.queues.first else {
+            return nil
+        }
+        self.queues.removeFirst()
+        return firstElement
+    }
+    open func firstQueueTypeLocal() -> Job? {
+        Log()
+        guard let firstElement = self.queues.first else {
+            return nil
+        }
+        if firstElement.type == .local {
+            self.queues.removeFirst()
+            return firstElement
+        }
+        return nil
+    }
+    
     open func setResult(token: String, type: [Job.`Type`]?, result: String) -> (Job?, Status) {
         Log()
         var matchedJob: Job?
@@ -251,7 +280,7 @@ open class Queue {
             print("[\(queue.offset)]")
             print("time:\(queue.element.time)")
             print("command:\(queue.element.command)")
-            print("fromNodeIp:\(queue.element.fromNodeIp)")
+            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
             print("operand:\(queue.element.operand)")
             print("type:\(queue.element.type)")
             print("result:\(queue.element.result)")

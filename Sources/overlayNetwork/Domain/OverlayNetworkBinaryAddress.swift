@@ -218,7 +218,7 @@ extension Data: OverlayNetworkBinaryAddress {
         {exponentOf2} is multiple of 8.
      */
     public func moduloAsData(exponentOf2: UInt) -> OverlayNetworkBinaryAddress {
-        LogEssential()
+        Log()
         return self.modulo(exponentOf2: exponentOf2) as OverlayNetworkBinaryAddress
     }
 
