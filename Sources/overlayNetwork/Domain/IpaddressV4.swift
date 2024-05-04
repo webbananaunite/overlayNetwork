@@ -22,7 +22,6 @@ public protocol IpaddressV4Protocol {
     
     init?()
 
-    static func getIFAddresses() -> [String]
     static func validIp(ipAddressString: String) -> Bool
     static func validDigit(digits: [String]) -> Bool
     func toString() -> String
@@ -64,49 +63,6 @@ public extension IpaddressV4Protocol {
         self.regions = ipDigits
     }
     
-    /*
-     Thank:
-     https://stackoverflow.com/a/25627545
-     */
-    static func getIFAddresses() -> [String] {
-        var addresses = [String]()
-
-        // Get list of all interfaces on the local machine:
-        var ifaddr : UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&ifaddr) == 0 else { return [] }
-        guard let firstAddr = ifaddr else { return [] }
-
-        // For each interface ...
-        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
-            let flags = Int32(ptr.pointee.ifa_flags)
-            let name = String(cString:ptr.pointee.ifa_name)
-            let addr = ptr.pointee.ifa_addr.pointee
-
-            // Check for running IPv4, IPv6 interfaces. Skip the loopback interface.
-            if (flags & (IFF_UP|IFF_RUNNING|IFF_LOOPBACK)) == (IFF_UP|IFF_RUNNING) {
-                if addr.sa_family == UInt8(AF_INET) {   //if addr.sa_family == UInt8(AF_INET) || addr.sa_family == UInt8(AF_INET6) {
-                    Log(name)
-                    if(name == "en0" || name == "en3") { //wifi     //macos13.3: en3
-                        // Convert interface address to a human readable string:
-                        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                        if (getnameinfo(ptr.pointee.ifa_addr, socklen_t(addr.sa_len), &hostname, socklen_t(hostname.count),
-                                        nil, socklen_t(0), NI_NUMERICHOST) == 0) {
-                            let address = String(cString: hostname)
-                            addresses.append(address)
-                        }
-                    }
-                }
-            }
-        }
-
-        freeifaddrs(ifaddr)
-        #if DEBUG
-//        addresses = ["100.1.1.255"] //test hashed text
-        #endif
-        Log(addresses)
-        return addresses
-    }
-
     static func validIp(ipAddressString: String) -> Bool {
         let ipDigits = ipAddressString.components(separatedBy: ".")
         guard Self.validDigit(digits: ipDigits) else {

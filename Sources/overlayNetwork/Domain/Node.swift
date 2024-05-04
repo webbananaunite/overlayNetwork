@@ -132,17 +132,9 @@ public protocol NodeProtocol: Equatable {
     static var validMinimumPortNumber: Int {
         get
     }
-    var signalingServerAddress: (ip: String, port: Int)? {
-        get
-    }
     var socketAddress :(ip: String, port: Int)? {
         get
     }
-    var socketHandle: Int32? {
-        get
-    }
-    func closeSocket(socketHandle: Int32)
-
     var runAsBootNode: Bool {
         get
     }
@@ -227,7 +219,6 @@ open class Node: ObservableObject, NodeProtocol {
     /*
      Communicate with overlayNetwork Address
      */
-    public var signalingServerAddress: (ip: String, port: Int)?
     public var socketAddress :(ip: String, port: Int)? { //private address ip & port
         get {
             if let ip = self.ip?.toString(), let port = self.port {
@@ -235,11 +226,6 @@ open class Node: ObservableObject, NodeProtocol {
             }
             return nil
         }
-    }
-    public var socketHandle: Int32?
-    public func closeSocket(socketHandle: Int32) {
-        self.socketHandle = nil
-        close(socketHandle)
     }
 
     public var runAsBootNode: Bool {
@@ -287,7 +273,7 @@ open class Node: ObservableObject, NodeProtocol {
             }
         }
         set {
-            LogEssential()
+            Log()
             if fingers.isEmpty {
                 let intervalMin = self.binaryAddress.addAsData(exponent: UInt(0)).moduloAsData(exponentOf2: Data.ModuloAsExponentOf2)
                 let intervalMax = self.binaryAddress.addAsData(exponent: UInt(0+1)).moduloAsData(exponentOf2: Data.ModuloAsExponentOf2)
@@ -349,7 +335,7 @@ open class Node: ObservableObject, NodeProtocol {
         return self.queues.deQueue(token: token, type: type)
     }
     open func printQueueEssential() {
-        #if DEBUG
+        #if false
         let className = (#file as NSString).lastPathComponent
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
@@ -376,7 +362,7 @@ open class Node: ObservableObject, NodeProtocol {
         #endif
     }
     open func printSocketQueue() {
-        #if DEBUG
+        #if false
         let className = (#file as NSString).lastPathComponent
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
@@ -599,7 +585,7 @@ open class Node: ObservableObject, NodeProtocol {
                 }
             }
         }
-        LogEssential("\(fingers.count) End deploy.")
+        Log("\(fingers.count) End deploy.")
     }
 
     open var description: String {
@@ -632,7 +618,46 @@ open class Node: ObservableObject, NodeProtocol {
         }
         return (ip, portNum)
     }
-    
+
+    public func reProduct(ownNode ip: IpaddressV4Protocol, port: Int) {
+        Log()
+        if ip.toString() == IpaddressV4.null.toString() {
+            let nodeAddress = "00"   //initial value for lower node
+            self.dhtAddressAsHexString = nodeAddress
+            self.binaryAddress = Data.DataNull
+        } else {
+            guard let (nodeAddress, hashed512Data) = Dht.hash(ip: ip, port: port), let nodeAddress = nodeAddress else {
+                return
+            }
+            /*
+             Test Mode
+             When Run As Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
+             */
+            let setArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
+            let envVar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
+            if setArgv || envVar != "" {
+                Log()
+                /*
+                 behavior as Boot Node.
+                 */
+                self.dhtAddressAsHexString = "988637f394e5c291fb7448a9e53bfc5f5fba73feb9ea57703d77b046ed20bab7a0d9f6b41467376ee0dfd25b48cd9a04ed81f0eb197dcfd6ef2532cf84e0f71c"
+                guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
+                    return
+                }
+                self.binaryAddress = binaryAddress
+            } else {
+                Log()
+                self.dhtAddressAsHexString = nodeAddress
+                self.binaryAddress = hashed512Data
+            }
+        }
+        self.ip = ip
+        self.port = port
+//        self.premiumCommand = premiumCommand
+        
+        Log("dhtAddressAsHexString:\(dhtAddressAsHexString) ip:\(ip) port:\(port)")
+        Dump(binaryAddress)
+    }
     /*
      Construct New Node for Own Node with Generating New DhtAddress.
      
@@ -722,9 +747,9 @@ open class Node: ObservableObject, NodeProtocol {
          
          Apply Dependency Injeciton for Premium Command
          */
-        LogCommunicate(command)
+        Log(command)
         var commandInstance: CommandProtocol? = Command(rawValue: command)
-        LogCommunicate(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
+        Log(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
         if commandInstance == nil {
             Log()
             /*
@@ -1168,15 +1193,16 @@ open class Node: ObservableObject, NodeProtocol {
     public var doneAllFingerTableEntry: Bool = false
     public var doneUpdateFingerTableInIndex: Bool = false
     open func initFingerTable(i: Int, babysitterNode: Node, token: String) -> String? {
+        Log()
         guard i < Node.FINGER_TABLE_INDEX_MAX else {
-            LogEssential("exceeded finger table range \(Node.FINGER_TABLE_INDEX_MAX): \(i)")
+            Log("exceeded finger table range \(Node.FINGER_TABLE_INDEX_MAX): \(i)")
             return nil
         }
         Log(babysitterNode.dhtAddressAsHexString.toString)
         guard babysitterNode.communicatable else {
             return nil
         }
-        LogEssential(i)
+        Log(i)
         /*
          Make adding exponent power of 2 into Data(binaryAddress).
          */
@@ -1234,9 +1260,9 @@ open class Node: ObservableObject, NodeProtocol {
              finger[i].start ∈ [self, finger[i-1].node)
                 then Set finger[i-1].node to finger[i].node
              */
-            LogEssential("start ∈ [self, finger[i-1].node) then Set Node to Finger Entry. \(i) ")
-            LogEssential(fingers[i].node?.getIp)
-            LogEssential(fingers[i-1].node?.getIp)
+            Log("start ∈ [self, finger[i-1].node) then Set Node to Finger Entry. \(i) ")
+            Log(fingers[i].node?.getIp)
+            Log(fingers[i-1].node?.getIp)
             fingers[i].node = fingers[i-1].node
             Log(i)
             if i >= Node.FINGER_TABLE_INDEX_MAX - 1 {
@@ -1324,10 +1350,10 @@ open class Node: ObservableObject, NodeProtocol {
     open func findPredecessor(_ index: String, for address: Node, token: String) -> (Node, Node?)? {
         Log()
         if self.haveBetweenWithSuccessor(about: address) {
-            LogEssential(true)
+            Log(true)
             return (self, self.successor)
         }
-        LogEssential(false)
+        Log(false)
         /*
          Get Next Closest Preceding Finger
          */
@@ -1375,8 +1401,8 @@ open class Node: ObservableObject, NodeProtocol {
             }
             i -= 1
         }
-        LogEssential(i)
-        LogEssential(matchedFinger?.node?.dhtAddressAsHexString ?? "Missed matching")
+        Log(i)
+        Log(matchedFinger?.node?.dhtAddressAsHexString ?? "Missed matching")
 
         /*
          Query successor to matchedFinger?.node
@@ -1546,7 +1572,7 @@ open class Node: ObservableObject, NodeProtocol {
      */
     public func updateOthers(i: Int, token: String) -> String? {
         Log()
-        LogEssential("2^\(i)")    //power(2,i)
+        Log("2^\(i)")    //power(2,i)
         
         defer {
 //            self.printFingerTable()
@@ -1594,10 +1620,10 @@ open class Node: ObservableObject, NodeProtocol {
 //                Log()
 //            }
         }
-        LogEssential("updateFingerTable have between .includeExclude")
-        LogEssential("about: \(node.binaryAddress.hexAsData()))")
-        LogEssential("from: \(fingers[i].interval[0].binaryAddress.hexAsData())")
-        LogEssential("to: \(fingers[i].node?.binaryAddress.hexAsData())")
+        Log("updateFingerTable have between .includeExclude")
+        Log("about: \(node.binaryAddress.hexAsData()))")
+        Log("from: \(fingers[i].interval[0].binaryAddress.hexAsData())")
+        Log("to: \(fingers[i].node?.binaryAddress.hexAsData())")
         
         /*
          if s ∈ [n, finger[i].node)     //IntervalType: .includeExclude
@@ -1609,10 +1635,10 @@ open class Node: ObservableObject, NodeProtocol {
          ⚪︎ if node = [fingers[i].interval.start, fingers[i].node)
          */
         let intervalStartNode = fingers[i].interval[0]
-        LogEssential("intervalStartNode: \(intervalStartNode.binaryAddress.hexAsData())")
+        Log("intervalStartNode: \(intervalStartNode.binaryAddress.hexAsData())")
         if intervalStartNode.have(node, between: fingers[i].node) {
             
-            LogEssential("have \(i)")
+            Log("have \(i)")
             if i == 0 {
                 Log("\(self.getIp).successor \(node.getIp)")
                 Log()
@@ -1622,9 +1648,9 @@ open class Node: ObservableObject, NodeProtocol {
                 pass.
              */
             if node.binaryAddress.hexAsData() == self.binaryAddress.hexAsData() {
-                LogEssential("Trying to Update finger table by own node.")
+                Log("Trying to Update finger table by own node.")
             } else {
-                LogEssential()
+                Log()
                 fingers[i].node = node
                 self.triggerStoreFingerTable = true
             }
@@ -1632,7 +1658,7 @@ open class Node: ObservableObject, NodeProtocol {
              get first node preceding n
              */
             if let p = self.predecessor, p.getIp != self.getIp {
-//                LogEssential("\(self.getIp ?? "nil") Call as my Predecessor to \(p.getIp ?? "nil").")
+//                Log("\(self.getIp ?? "nil") Call as my Predecessor to \(p.getIp ?? "nil").")
 //                Log("\(p.getIp ?? "nil") != \(self.getIp ?? "nil")")
                 Command.updateFingerTable.send(node: self, to: p.dhtAddressAsHexString, operands: [node.dhtAddressAsHexString.toString, String(i)], previousToken: token) {
                     string in
@@ -1641,7 +1667,7 @@ open class Node: ObservableObject, NodeProtocol {
                 return nil
             }
         } else {
-            LogEssential("have NOT \(i)")
+            Log("have NOT \(i)")
         }
         return String(i)
     }

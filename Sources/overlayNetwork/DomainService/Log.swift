@@ -15,6 +15,10 @@ public func Log(_ object: Any = "", functionName: String = #function, fileName: 
     /*
      Disable Logging in following Classes.
      */
+//    if className == "Node.swift" || className == "Command.swift" {
+//    } else {
+//        return
+//    }    
 //    if className == "Streaming.swift" {
 //        return
 //    }
@@ -34,14 +38,25 @@ public func Log(_ object: Any = "", functionName: String = #function, fileName: 
         return
     }
     let formatter = DateFormatter()
-    formatter.dateFormat = "HH:mm:ss"
+//    formatter.dateFormat = "HH:mm:ss"
+    formatter.dateFormat = "HH:mm:ss.SSSS"
     let dateString = formatter.string(from: Date())
     print("\(dateString) \(className) \(functionName) l.\(lineNumber) \(object)\n")
     #endif
 }
-
+public func LogPosixError(functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
+    #if false
+//    LogPosixError()
+    let className = (fileName as NSString).lastPathComponent
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm:ss"
+    let dateString = formatter.string(from: Date())
+    print("\(dateString) \(className) \(functionName) l.\(lineNumber) \(errno) \(errno == 0 ? "No errors" : String(cString: strerror(errno)))\n")
+    errno = 0   //clear error number
+    #endif
+}
 public func LogEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if DEBUG
+    #if false
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"
@@ -51,7 +66,7 @@ public func LogEssential(_ object: Any = "", functionName: String = #function, f
 }
 
 public func LogCommunicate(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if DEBUG
+    #if true
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"
