@@ -149,6 +149,21 @@ open class Queue {
         self.queues.removeFirst()
         return firstElement
     }
+    open func deQueue(toOverlayNetworkAddress: OverlayNetworkAddressAsHexString, token: String) -> Job? {
+        Log()
+        var index: Int?
+        var deQueuedElement: Job?
+        self.queues.enumerated().forEach {
+            if $0.element.toOverlayNetworkAddress.equal(toOverlayNetworkAddress) && $0.element.token == token {
+                index = $0.offset
+            }
+        }
+        if let index = index {
+            deQueuedElement = self.queues[index]
+            self.queues.remove(at: index)
+        }
+        return deQueuedElement
+    }
     open func firstQueueTypeLocal() -> Job? {
         Log()
         guard let firstElement = self.queues.first else {

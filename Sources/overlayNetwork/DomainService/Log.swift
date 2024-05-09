@@ -10,19 +10,13 @@ import Foundation
 import UIKit
 
 public func Log(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
     let className = (fileName as NSString).lastPathComponent
     /*
      Disable Logging in following Classes.
      */
 //    if className == "Node.swift" || className == "Command.swift" {
 //    } else {
-//        return
-//    }    
-//    if className == "Streaming.swift" {
-//        return
-//    }
-//    if className == "Stream+.swift" {
 //        return
 //    }
 //    if className == "Socket.swift" {
@@ -45,7 +39,7 @@ public func Log(_ object: Any = "", functionName: String = #function, fileName: 
     #endif
 }
 public func LogPosixError(functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
 //    LogPosixError()
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
@@ -56,7 +50,7 @@ public func LogPosixError(functionName: String = #function, fileName: String = #
     #endif
 }
 public func LogEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"
@@ -76,8 +70,21 @@ public func LogCommunicate(_ object: Any = "", functionName: String = #function,
 }
 
 public func Dump(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
     let className = (fileName as NSString).lastPathComponent
+    /*
+     Disable Logging in following Classes.
+     */
+//    if className == "Node.swift" || className == "Command.swift" {
+//    } else {
+//        return
+//    }
+//    if className == "Socket.swift" {
+//        return
+//    }
+    if className == "Data+.swift" {
+        return
+    }
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"
     let dateString = formatter.string(from: Date())
@@ -92,7 +99,7 @@ public func Dump(_ object: Any = "", functionName: String = #function, fileName:
 }
 
 public func DumpEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"

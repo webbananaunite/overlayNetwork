@@ -89,20 +89,6 @@ public class Finger: Equatable {
     public func storeUp(index: Int) {
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
-            
-//            let jsonData: Data = """
-//            {
-//              "index": \(index),
-//              "dhtAddressAsHexString": {
-//                "start": "\(self.start.dhtAddressAsHexString)",
-//                "interval": [
-//                    "\(self.interval[0].dhtAddressAsHexString)",
-//                    "\(self.interval[1].dhtAddressAsHexString)"
-//                ],
-//                "node": "\(self.node?.ipAndPortString ?? "")"
-//              }
-//            },\n
-//            """.utf8DecodedData!
             let jsonData: Data = """
             {
               "index": \(index),
@@ -126,15 +112,11 @@ public class Finger: Equatable {
     public static func storePredecessor(overlayNetworkAddress: OverlayNetworkAddressAsHexString) {
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
-//            let jsonData: Data = """
-//            {
-//              "predecessor": "\(predecessorIpAndPort)"
-//            },\n
-//            """.utf8DecodedData!
             let jsonData: Data = """
             {
               "predecessor": {
                 "dhtAddressAsHexString": "\(overlayNetworkAddress.toString)"
+              }
             },\n
             """.utf8DecodedData!
             
@@ -195,7 +177,7 @@ public class Finger: Equatable {
                 let url = URL(fileURLWithPath: Finger.archiveFilePath)
                 let data = try Data(contentsOf: url)
                 Log("\(data.utf8String ?? "")")
-                if let jsonData = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [Any] {
+                if let jsonData = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [Any] {
                     Log(jsonData)
                     let jsonArray = jsonData.map { (aObject) -> [String: Any] in
                         return aObject as! [String: Any]

@@ -755,7 +755,7 @@ public enum Command: String, CommandProtocol {
                 return nil
             }
             let precedingNode = node.closestPrecedingFinger(address: targetNode, token: token)
-            Log(precedingNode.getIp)
+            Log(precedingNode.dhtAddressAsHexString)
             Command.queryYourSuccessor.send(node: node, to: precedingNode.dhtAddressAsHexString, operands: [fingerTableIndex, targetNode.dhtAddressAsHexString.toString, precedingNode.dhtAddressAsHexString.toString], previousToken: token) {
                 a in
                 Log("Run [queryYourSuccessor] Command to \(precedingNode.dhtAddressAsHexString).")

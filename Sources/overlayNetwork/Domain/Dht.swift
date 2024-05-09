@@ -194,8 +194,18 @@ open class Dht {
         guard let portNum = Int(signalingServerIpAndPorts[1]), let ip = IpaddressV4(ipAddressString: signalingServerIpAndPorts[0])?.toString() else {
             return nil
         }
+        #if false
+        /*
+         When debugging, using another port number instead of deamon port number (3478).
 
+         Type on terminal shell.
+         $ ./server.py 3479
+         */
+        let debuggingPortNum = 3479
+        return (ip, debuggingPortNum)
+        #else
         return (ip, portNum)
+        #endif
     }
 
     open class func getBabysitterNode(ownOverlayNetworkAddress: String) -> Node? {
