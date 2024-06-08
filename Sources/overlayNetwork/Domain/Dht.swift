@@ -194,7 +194,7 @@ open class Dht {
         guard let portNum = Int(signalingServerIpAndPorts[1]), let ip = IpaddressV4(ipAddressString: signalingServerIpAndPorts[0])?.toString() else {
             return nil
         }
-        #if DEBUG
+        #if false
         /*
          When debugging, using another port number instead of deamon port number (3478).
 
