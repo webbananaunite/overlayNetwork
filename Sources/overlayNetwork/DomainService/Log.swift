@@ -39,15 +39,15 @@ public func Log(_ object: Any = "", functionName: String = #function, fileName: 
     #endif
 }
 public func LogPosixError(functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if true
+    #if false
 //    LogPosixError()
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"
     let dateString = formatter.string(from: Date())
     print("\(dateString) \(className) \(functionName) l.\(lineNumber) \(errno) \(errno == 0 ? "No errors" : String(cString: strerror(errno)))\n")
-    errno = 0   //clear error number
     #endif
+    errno = 0   //clear error number
 }
 public func LogEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
     #if true
@@ -70,7 +70,7 @@ public func LogCommunicate(_ object: Any = "", functionName: String = #function,
 }
 
 public func Dump(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if true
+    #if false
     let className = (fileName as NSString).lastPathComponent
     /*
      Disable Logging in following Classes.
@@ -99,7 +99,7 @@ public func Dump(_ object: Any = "", functionName: String = #function, fileName:
 }
 
 public func DumpEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if true
+    #if false
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"

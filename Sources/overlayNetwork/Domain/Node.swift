@@ -210,8 +210,20 @@ open class Node: ObservableObject, NodeProtocol {
     public var binaryAddress: OverlayNetworkBinaryAddress  //[UInt8] 512 bit - Make IP+Port into Hash Data
     public var dhtAddressAsHexString: any OverlayNetworkAddressAsHexString  //binary address As Hexa decimal String
     
-    public var ip: IpaddressV4Protocol?  //private address ip
-    public var port: Int?                //private address port
+//    public var ip: IpaddressV4Protocol?  //private address ip
+//    public var port: Int?                //private address port
+    public var ip: IpaddressV4Protocol? {  //latest private address ip
+        self.ips.last
+    }
+    public var port: Int? {                //latest private address port
+        self.ports.last
+    }
+    public var ips = [IpaddressV4Protocol]()  //private address ips
+    public var ports = [Int]()                //private address ports
+    /*
+     let node addresses store to Node#ips, Node#ports in every used when in communicate with signaling server.
+     */
+
     public var publicAddress: (ip: String, port: Int)?
     
     public static let validMinimumPortNumber = 1024
@@ -219,7 +231,7 @@ open class Node: ObservableObject, NodeProtocol {
     /*
      Communicate with overlayNetwork Address
      */
-    public var socketAddress :(ip: String, port: Int)? { //private address ip & port
+    public var socketAddress: (ip: String, port: Int)? { //private address ip & port
         get {
             if let ip = self.ip?.toString(), let port = self.port {
                 return (ip: ip, port: port)
@@ -621,38 +633,44 @@ open class Node: ObservableObject, NodeProtocol {
 
     public func reProduct(ownNode ip: IpaddressV4Protocol, port: Int) {
         Log()
-        if ip.toString() == IpaddressV4.null.toString() {
-            let nodeAddress = "00"   //initial value for lower node
-            self.dhtAddressAsHexString = nodeAddress
-            self.binaryAddress = Data.DataNull
-        } else {
-            guard let (nodeAddress, hashed512Data) = Dht.hash(ip: ip, port: port), let nodeAddress = nodeAddress else {
-                return
-            }
-            /*
-             Test Mode
-             When Run As Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
-             */
-            let setArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
-            let envVar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
-            if setArgv || envVar != "" {
-                Log()
-                /*
-                 behavior as Boot Node.
-                 */
-                self.dhtAddressAsHexString = "988637f394e5c291fb7448a9e53bfc5f5fba73feb9ea57703d77b046ed20bab7a0d9f6b41467376ee0dfd25b48cd9a04ed81f0eb197dcfd6ef2532cf84e0f71c"
-                guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
+        if !self.dhtAddressAsHexString.isValid {
+            if ip.toString() == IpaddressV4.null.toString() {
+                let nodeAddress = "00"   //initial value for lower node
+                self.dhtAddressAsHexString = nodeAddress
+                self.binaryAddress = Data.DataNull
+            } else {
+                guard let (nodeAddress, hashed512Data) = Dht.hash(ip: ip, port: port), let nodeAddress = nodeAddress else {
                     return
                 }
-                self.binaryAddress = binaryAddress
-            } else {
-                Log()
-                self.dhtAddressAsHexString = nodeAddress
-                self.binaryAddress = hashed512Data
+                /*
+                 Test Mode
+                 When Run As Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
+                 */
+                let setArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
+                let envVar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
+                if setArgv || envVar != "" {
+                    Log()
+                    /*
+                     behavior as Boot Node.
+                     */
+                    self.dhtAddressAsHexString = "988637f394e5c291fb7448a9e53bfc5f5fba73feb9ea57703d77b046ed20bab7a0d9f6b41467376ee0dfd25b48cd9a04ed81f0eb197dcfd6ef2532cf84e0f71c"
+                    guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
+                        return
+                    }
+                    self.binaryAddress = binaryAddress
+                } else {
+                    Log()
+                    self.dhtAddressAsHexString = nodeAddress
+                    self.binaryAddress = hashed512Data
+                }
             }
         }
-        self.ip = ip
-        self.port = port
+        
+//        self.ip = ip
+//        self.port = port
+        self.ips += [ip]
+        self.ports += [port]
+        
 //        self.premiumCommand = premiumCommand
         
         Log("dhtAddressAsHexString:\(dhtAddressAsHexString) ip:\(ip) port:\(port)")
@@ -696,8 +714,11 @@ open class Node: ObservableObject, NodeProtocol {
                 self.binaryAddress = hashed512Data
             }
         }
-        self.ip = ip
-        self.port = port
+//        self.ip = ip
+//        self.port = port
+        self.ips += [ip]
+        self.ports += [port]
+
         self.premiumCommand = premiumCommand
         
         Log("dhtAddressAsHexString:\(dhtAddressAsHexString) ip:\(ip) port:\(port)")

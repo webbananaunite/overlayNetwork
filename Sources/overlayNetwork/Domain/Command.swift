@@ -92,8 +92,8 @@ public extension CommandProtocol {
     }
 
     func send(node: any NodeProtocol, to overlayNetworkAddress: OverlayNetworkAddressAsHexString, operands: [String?], previousToken: String? = nil, callback: (String) -> Void) -> Void {
-        Log("\(self.rawValue) to \(overlayNetworkAddress)")
-        Log(operands)
+        LogEssential("\(self.rawValue) to \(overlayNetworkAddress)")
+        LogEssential(operands)
         //Enqueue the Command
         let operand = operandUnification(operands: operands)
         let job = Job(command: self, operand: operand, from: node.dhtAddressAsHexString, to: overlayNetworkAddress, type: .delegate, token: nil, previousJobToken: previousToken)
