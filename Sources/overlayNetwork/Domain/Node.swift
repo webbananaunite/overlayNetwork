@@ -206,12 +206,15 @@ open class Node: ObservableObject, NodeProtocol {
      Custom Commands Dependency Injection
      */
     public var premiumCommand: CommandProtocol?
-    
+    /*
+     OverlayNetworkAddress Can be Restorable Property.
+     
+     ex.
+     ReUse as blocks#Node#restore() as boot node.
+     */
     public var binaryAddress: OverlayNetworkBinaryAddress  //[UInt8] 512 bit - Make IP+Port into Hash Data
     public var dhtAddressAsHexString: any OverlayNetworkAddressAsHexString  //binary address As Hexa decimal String
     
-//    public var ip: IpaddressV4Protocol?  //private address ip
-//    public var port: Int?                //private address port
     public var ip: IpaddressV4Protocol? {  //latest private address ip
         self.ips.last
     }
