@@ -146,7 +146,7 @@ public class Finger: Equatable {
     }
 
     public func print() {
-#if DEBUG
+#if false
         Swift.print("---Stored-------\n")
         do {
             let result = try String(contentsOf: URL(fileURLWithPath: Finger.archiveFilePath), encoding: .utf8)

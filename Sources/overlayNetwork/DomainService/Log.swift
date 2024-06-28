@@ -50,7 +50,7 @@ public func LogPosixError(functionName: String = #function, fileName: String = #
     errno = 0   //clear error number
 }
 public func LogEssential(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"
@@ -60,7 +60,7 @@ public func LogEssential(_ object: Any = "", functionName: String = #function, f
 }
 
 public func LogCommunicate(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-    #if false
+    #if true
     let className = (fileName as NSString).lastPathComponent
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm:ss"

@@ -503,7 +503,7 @@ open class Node: ObservableObject, NodeProtocol {
 #endif
     }
     open func printFingerTableEssential() {
-#if DEBUG
+#if true
         print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
         print("[start]     [interval]     [node]\n")
