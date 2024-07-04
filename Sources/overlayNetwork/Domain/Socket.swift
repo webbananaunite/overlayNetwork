@@ -1878,14 +1878,14 @@ open class Socket {
                         if self.mode == .dequeueJob {
                             //MARK: w dequeueJob
                             Log()
-                            node.printSocketQueue()
+                            node.printSocketQueueEssential()
                             guard let firstJob = node.socketQueues.queues.first else {
                                 Log("Not Have Command to Send.")
                                 return false
                             }
                             
                             Log(firstJob.token)
-                            Log(firstJob)
+                            LogEssential(firstJob)
                             /*
                              overlayNetworkAddress →ip address pair への翻訳が済んでいたら
                              ↓
@@ -1897,7 +1897,7 @@ open class Socket {
                              */
                             var commandInstance: CommandProtocol = firstJob.command
                             if firstJob.command.rawValue == "", let command = node.premiumCommand {
-                                Log()
+                                LogEssential()
                                 /*
                                  Won't be Use this.
                                  
@@ -1907,7 +1907,7 @@ open class Socket {
                                 commandInstance = node.premiumCommand?.command(command.rawValue) ?? command
                                 commandInstance = command
                             }
-                            Log("from \(node.dhtAddressAsHexString) to overlayNetworkAddress:\(firstJob.toOverlayNetworkAddress) command:\(commandInstance.rawValue) operand:\(firstJob.operand)")
+                            LogEssential("from \(node.dhtAddressAsHexString) to overlayNetworkAddress:\(firstJob.toOverlayNetworkAddress) command:\(commandInstance.rawValue) operand:\(firstJob.operand)")
                             if firstJob.type == .local || firstJob.toOverlayNetworkAddress.equal(node.dhtAddressAsHexString) {
                                 Log("Local Job")
                                 let _ = node.socketQueues.deQueue(toOverlayNetworkAddress: firstJob.toOverlayNetworkAddress, token: firstJob.token)
@@ -1968,13 +1968,13 @@ open class Socket {
                                                 return false
                                             }
                                             Log(writableSocket)
-                                            LogEssential("Dequeue \(firstJob.toOverlayNetworkAddress) in socketQueues")
+                                            LogEssential("Dequeue \(firstJob.command.rawValue) in socketQueues")
                                             let _ = node.socketQueues.deQueue(toOverlayNetworkAddress: firstJob.toOverlayNetworkAddress, token: firstJob.token)
                                             /*
                                              SO_NOSIGPIPE: NOT generate signal as broken communication pipe (must set the flag on setsockopt().)
                                              */
                                             let (findipResult, addressSpace, _) = self.findIpAndAddressSpace(socketFd: writableSocket)
-                                            Log("\(sendDataAsCChar.toString as Any) to \(findipResult as Any)")
+                                            LogEssential("\(sendDataAsCChar.toString as Any) to \(findipResult as Any)")
                                             //TCP_NODELAY: don't delay send to coalesce packets
                                             sentStatus = sendDataAsCChar.withUnsafeBytes {
                                                 send(writableSocket, $0.baseAddress, $0.count, 0)

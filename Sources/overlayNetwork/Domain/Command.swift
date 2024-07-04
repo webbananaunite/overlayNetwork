@@ -65,7 +65,7 @@ public extension CommandProtocol {
     }
 
     func reply(node: any NodeProtocol, to overlayNetworkAddress: OverlayNetworkAddressAsHexString, operand: String?, token: String, callback: (String) -> Void) -> Void {
-        Log("\(self.replyCommand) operand: \(String(describing: operand)) token: \(token) to: \(overlayNetworkAddress)")
+        LogEssential("\(self.replyCommand) operand: \(String(describing: operand)) token: \(token) to: \(overlayNetworkAddress)")
         let operandValue: String = operand == nil ? "" : operand!
         Log()
         node.printQueue()
@@ -245,6 +245,14 @@ public enum Command: String, CommandProtocol {
             return Command.queryYourSuccessor
         case "QS_":
             return Command.queryYourSuccessorReply
+        case "QP":
+            return Command.queryYourPredecessor
+        case "QP_":
+            return Command.queryYourPredecessorReply
+        case "NP":
+            return Command.notifyPredecessor   //notify predecessor to successor node
+        case "NP_":
+            return Command.notifyPredecessorReply   //notify predecessor to successor node
         case "FP":
             return Command.findPredecessor
         case "FP_":
@@ -298,6 +306,14 @@ public enum Command: String, CommandProtocol {
             return "QS"
         case queryYourSuccessorReply:
             return "QS_"
+        case queryYourPredecessor:
+            return "QP"
+        case queryYourPredecessorReply:
+            return "QP_"
+        case notifyPredecessor:
+            return "NP"    //notify predecessor to successor node
+        case notifyPredecessorReply:
+            return "NP_"    //notify predecessor to successor node
         case findPredecessor:
             return "FP"
         case findPredecessorReply:
@@ -797,32 +813,49 @@ public enum Command: String, CommandProtocol {
             return operandUnification(operands: [fingerTableIndex, targetNode.dhtAddressAsHexString.toString, precedingNode.dhtAddressAsHexString.toString, successorNode.dhtAddressAsHexString.toString, ""])
         case .queryYourPredecessor :  //MARK: queryYourPredecessor
             Log("Do \(self.rawValue)")
-            Log(operandArray[0])    //0: finger table index (Optional)
-            let fingerTableIndex = operandArray[0]
+            //Log(operandArray[0])    //0: finger table index (Optional)
             guard let predecessorNode = node.predecessor else {
                 return nil
             }
-            return operandUnification(operands: [fingerTableIndex, predecessorNode.dhtAddressAsHexString.toString])
+            if operandArray.isEmpty {
+                Log()
+                return operandUnification(operands: [predecessorNode.dhtAddressAsHexString.toString])
+            } else {
+                Log(operandArray[0])    //0: finger table index (Optional)
+                let fingerTableIndex = operandArray[0]
+                return operandUnification(operands: [fingerTableIndex, predecessorNode.dhtAddressAsHexString.toString])
+            }
         case .queryYourPredecessorReply :
-            Log("Do \(self.rawValue)")
-            Log(operandArray[0])    //0: finger table index
-            Log(operandArray[1])    //1: predecessor node hex address
-            let fingerTableIndex = operandArray[0]
-            guard let predecessorNode = Node(dhtAddressAsHexString: operandArray[1]) else {
+            LogEssential("Do \(self.rawValue)")
+            var fingerTableIndex: String?
+            var predecessorNodeHexAddress: String?
+            if operandArray.count == 2 {
+                LogEssential(operandArray[0])    //0: finger table index
+                LogEssential(operandArray[1])    //1: predecessor node hex address
+                fingerTableIndex = operandArray[0]
+                predecessorNodeHexAddress = operandArray[1]
+            } else if operandArray.count == 1 {
+                LogEssential(operandArray[0])    //0: predecessor node hex address
+                predecessorNodeHexAddress = operandArray[0]
+            }
+            guard let predecessorNodeHexAddress = predecessorNodeHexAddress, let predecessorNode = Node(dhtAddressAsHexString: predecessorNodeHexAddress) else {
                 return nil
             }
-            if operandArray[1] == node.dhtAddressAsHexString.toString {
-                Log("In Stable: Successor's Predecessor is Own Node.")
+            if predecessorNodeHexAddress == node.dhtAddressAsHexString.toString {
+                LogEssential("In Stable: Successor's Predecessor is Own Node.")
             } else {
-                Log("")
+                LogEssential()
                 node.replyStabilize(candidateSuccessor: predecessorNode)
             }
+            LogEssential()
             return nil
-            
             //notify predecessor to successor node
         case .notifyPredecessor : //MARK: notifyPredecessor
-            
-            //#now
+            Log(operandArray[0])    //0: Predecessor Node's overlayNetworkAddress
+            guard let predecessorNode = Node(dhtAddressAsHexString: operandArray[0]) else {
+                return nil
+            }
+            node.notify(node: predecessorNode)
             return nil
         case .notifyPredecessorReply :
             return nil

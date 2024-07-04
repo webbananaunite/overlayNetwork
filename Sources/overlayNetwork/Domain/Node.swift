@@ -74,7 +74,7 @@ public protocol NodeProtocol: Equatable {
     func join(babysitterNode: Node?)
     func firstNodeInitFingerTable(token: String) -> String?
     func initFingerTable(i: Int, babysitterNode: Node, token: String) -> String?
-    func findSuccessor(address: Node, token: String) -> Node?
+//    func findSuccessor(address: Node, token: String) -> Node?
     func findPredecessor(_ index: String, for address: Node, token: String) -> (Node, Node?)?
 
     func findPredecessorReply(for address: Node, token: String)
@@ -376,6 +376,33 @@ open class Node: ObservableObject, NodeProtocol {
         }
         #endif
     }
+    open func printSocketQueueEssential() {
+        #if false
+        let className = (#file as NSString).lastPathComponent
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let dateString = formatter.string(from: Date())
+        print("PQ \(dateString) \(className) \(#function) l.\(#line)\n")
+        print("[PrintSocketQueue]")
+        print("Node: \(self.getIp)")
+        print("Queues: \(socketQueues.queues.count)")
+        socketQueues.queues.enumerated().forEach { queue in
+            print("\n")
+            print("[\(queue.offset)]")
+            print("time:\(queue.element.time)")
+            print("command:\(queue.element.command)")
+            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
+            print("operand:\(queue.element.operand)")
+            print("type:\(queue.element.type)")
+            print("result:\(queue.element.result)")
+            print("status:\(queue.element.status)")
+            print("token:\(queue.element.token)")
+            print("previousJobToken:\(queue.element.previousJobToken)")
+            print("nextJobToken:\(queue.element.nextJobToken)")
+            print("\n")
+        }
+        #endif
+    }
     open func printSocketQueue() {
         #if false
         let className = (#file as NSString).lastPathComponent
@@ -534,7 +561,7 @@ open class Node: ObservableObject, NodeProtocol {
         Finger.storeLastLine()
     }
     open func printArchivedFingerTable() {
-        #if DEBUG
+        #if false
         print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         Log(fingers.count)
         if let finger = fingers.first {
@@ -760,7 +787,7 @@ open class Node: ObservableObject, NodeProtocol {
      ノードが受信した
      */
     open func received(from sentOverlayNetworkAddress: String, data: String) {
-        LogCommunicate("from: \(sentOverlayNetworkAddress) data: \(data)")
+        LogEssential("from: \(sentOverlayNetworkAddress) data: \(data)")
         guard let (command, operand, token) = takeCommandAndData(data: data) else {
             return
         }
@@ -831,7 +858,22 @@ open class Node: ObservableObject, NodeProtocol {
             Log(command)
             self.printQueue(job: updatedJob)
             //Send reply command
-            (Command(rawValue: command) ?? Command.other).reply(node: self, to: sentOverlayNetworkAddress, operand: nextOperand, token: token) {
+//            (Command(rawValue: command) ?? Command.other).reply(node: self, to: sentOverlayNetworkAddress, operand: nextOperand, token: token) {
+//                a in
+//                Log("Sent reply to \(sentOverlayNetworkAddress)")
+//            }
+            var commandInstance: CommandProtocol? = Command(rawValue: command)
+            LogEssential(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
+            if commandInstance == nil {
+                Log()
+                /*
+                 if Nothing in overlayNetwork Command,
+                 Use Appendix Premium Command.
+                 */
+                commandInstance = self.premiumCommand?.command(command)
+                LogEssential(commandInstance)
+            }
+            commandInstance?.reply(node: self, to: sentOverlayNetworkAddress, operand: nextOperand, token: token) {
                 a in
                 Log("Sent reply to \(sentOverlayNetworkAddress)")
             }
@@ -1328,6 +1370,8 @@ open class Node: ObservableObject, NodeProtocol {
     }
     
     /*
+     Not Use
+     
      Argument address's Successor
      
      "Successor" is next node in DHT circle by clockwise.
@@ -1341,14 +1385,14 @@ open class Node: ObservableObject, NodeProtocol {
      Return:
      Always return nil
      */
-    public func findSuccessor(address: Node, token: String) -> Node? {
-        Log()
-        /*
-         address NOT belog between self and self.successor
-         Be querying another node.
-         */
-        return nil
-    }
+//    public func findSuccessor(address: Node, token: String) -> Node? {
+//        Log()
+//        /*
+//         address NOT belog between self and self.successor
+//         Be querying another node.
+//         */
+//        return nil
+//    }
     
     /*
      ask node n to find id's predecessor
@@ -1697,25 +1741,36 @@ open class Node: ObservableObject, NodeProtocol {
     }
 
     /*
-     periodically verify self’s immediate successor,
+     Detect Newcomer Node, and Reflect New Node to own Finger Table.
+     
+     Periodically verify self’s immediate successor,
      and tell the successor about self.
      
-     #now do every boot up
+     Do every boot up.
      */
     public func stabilize() {
+        LogCommunicate()
 //        guard let x = self.successor?.predecessor else {
 //            return
 //        }
-        guard let successorNodeIp = self.successor?.getIp else {
+//        guard let successorNodeIp = self.successor?.getIp else {
+//            return
+//        }
+//        Command.queryYourPredecessor.send(node: self, to: successorNodeIp, operands: [""]) { a in
+//            Log("Run [queryYourPredecessor] Command to \(successorNodeIp).")
+//        }
+        guard let successorNodeOverlayAddress = self.successor?.dhtAddressAsHexString else {
+            Log()
             return
         }
-        Command.queryYourPredecessor.send(node: self, to: successorNodeIp, operands: [""]) { a in
-            Log("Run [queryYourPredecessor] Command to \(successorNodeIp).")
+        Command.queryYourPredecessor.send(node: self, to: successorNodeOverlayAddress, operands: [""]) { a in
+            Log("Run [queryYourPredecessor] Command to \(successorNodeOverlayAddress).")
         }
     }
     public func replyStabilize(candidateSuccessor: Node) {
-        Log()
+        LogEssential()
         if haveBetweenWithSuccessor(about: candidateSuccessor) {
+            LogEssential()
             /*
              There is New Node for Own Node's Successor.
              */
@@ -1723,33 +1778,56 @@ open class Node: ObservableObject, NodeProtocol {
         }
 //        self.successor?.notify(node: self)
         guard let successorNodeOverlayNetworkAddress = self.successor?.dhtAddressAsHexString else {
+            LogEssential()
             return
         }
         Command.notifyPredecessor.send(node: self, to: successorNodeOverlayNetworkAddress, operands: [self.dhtAddressAsHexString.toString]) { a in
             Log("Run [notifyPredecessor] Command to \(successorNodeOverlayNetworkAddress).")
         }
+        LogEssential()
     }
     
     // node thinks it might be our predecessor.
     public func notify(node: Node) {
+        LogCommunicate()
         guard let predecessor = self.predecessor else {
+            LogCommunicate()
             self.predecessor = node
             self.triggerStoreFingerTable = true
             return
         }
         if have(node, between: predecessor) {
+            LogCommunicate()
             self.predecessor = node
             self.triggerStoreFingerTable = true
         }
+        LogCommunicate()
     }
     
     //periodically refresh finger table entries.
+//    public func fixFingers(token: String) {
+//        let i = Int.random(in: 0..<self.fingers.count)
+//        if let successor = findSuccessor(address: fingers[i].start, token: token) {
+//            self.fingers[i].node = successor
+//            self.triggerStoreFingerTable = true
+//        }
+//    }
+    
     public func fixFingers(token: String) {
+        Log()
         let i = Int.random(in: 0..<self.fingers.count)
-        if let successor = findSuccessor(address: fingers[i].start, token: token) {
-            self.fingers[i].node = successor
-            self.triggerStoreFingerTable = true
+        if let currentSuccessor = self.fingers[i].node {
+            Log()
+            Command.findSuccessor.send(node: self, to: currentSuccessor.dhtAddressAsHexString, operands: [String(i), fingers[i].start.dhtAddressAsHexString.toString], previousToken: token) {
+                a in
+                Log("Sent [Find Successor \(i)] Command to \(currentSuccessor.dhtAddressAsHexString.toString).")
+            }
         }
+    }
+    public func replyFixFingers(i: Int, newSuccessor: Node, token: String) {
+        Log()
+        self.fingers[i].node = newSuccessor
+        self.triggerStoreFingerTable = true
     }
     /*inprementation of Chord*/
 }
