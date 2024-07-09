@@ -530,7 +530,7 @@ open class Node: ObservableObject, NodeProtocol {
 #endif
     }
     open func printFingerTableEssential() {
-#if true
+#if false
         print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
         print("[start]     [interval]     [node]\n")
@@ -587,7 +587,16 @@ open class Node: ObservableObject, NodeProtocol {
         Log("Have NOT Archived")
         return false
     }
-    
+    open func availableFingerTable() -> Bool {
+        guard let jsonData = Finger.fetchJson(), jsonData.count == (Node.FINGER_TABLE_INDEX_MAX + 1) else {
+            Log("Broken Cached data.")
+            return false
+        }
+        Log(jsonData[0])  //["predecessor": 192.168.0.3:8334]
+        Log(jsonData[1])  //[ {Object},... ]
+        Log(jsonData.count)
+        return true
+    }
     /*
      Deploy Finger Table from Device's Storage.
      
@@ -605,7 +614,7 @@ open class Node: ObservableObject, NodeProtocol {
         Log(jsonData[1])  //[ {Object},... ]
         Log(jsonData.count)
         jsonData.forEach {
-#if true
+#if false
             print($0)
             print("---\n")
 #endif

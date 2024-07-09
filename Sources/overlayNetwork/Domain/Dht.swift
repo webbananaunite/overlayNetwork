@@ -231,7 +231,7 @@ open class Dht {
     }
 
     class func getBootNodesAndStagingServerAddress() -> ([String], [String]) {
-        guard let answer = Dns.fetchTXTRecords(domain) as? [String] else {
+        guard let answer = Dns.fetchTXTRecords(domain) else {
             return ([], [])
         }
         Log(answer)

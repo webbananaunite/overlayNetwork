@@ -160,11 +160,22 @@ open class Socket {
 //    let regularWaitTime: UInt32 = UInt32(0.5 * 1024 * 1024)
 //    #endif
 
+    /*
+     As Do handshake as NAT Traversal Operation,
+     Exchanging each Token String by Local Node and Remote Nodes.
+     */
+    var remote_token = "_"
+    var remote_knows_our_token = false
+    
     var mode: Mode {
         didSet {
+            if self.mode == .handshake {
+                self.remote_token = "_"
+            }
             self.doUpdateFdSet = true
         }
     }
+    var terminateCommunicate = false
     var previousMode: Mode = .registerMeAndIdling
     var doUpdateFdSet = false
     var claimTranslate = false  //sendTranslateNode
@@ -182,7 +193,6 @@ open class Socket {
     }
     var socketHandles: [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]]
     
-    var remote_knows_our_token = false
     var communicationProcess = processPhase()
     var bannedOverlayNetworkAddresses = [String: Bool]()
     
@@ -434,6 +444,7 @@ open class Socket {
                     connect(sockhandle, $0, socklen_t(MemoryLayout.size(ofValue: remoteaddress)))
                 }
             }
+            Log("\(connectStatus) \(errno)")
             if connectStatus == 0 || (connectStatus == -1 && errno == 56) {
                 connectionSucceeded = true
             } else {
@@ -656,6 +667,13 @@ open class Socket {
                 while true {
                     Log("++++++++++++++++ try Signaling (for communication) ++++++++++++++++")
                     communication()
+                    if self.terminateCommunicate {
+                        /*
+                         Socket Communication Terminate as Signaling Server UnAvailable.
+                         */
+                        self.terminateCommunicate = false
+                        break
+                    }
                 }
             }
         } else {
@@ -684,14 +702,30 @@ open class Socket {
             }
             Log(signalingServerAddress)
             /*
-             Two Time
-             1st: Take Local Address
-             2nd: Signaling Phase
+             Connet to Sygnaling Server Two Time. (Syncronouslly)
+             
+             1st: Take Device's Private Address (IP and Port Number).
+             ↓
+             2nd: Use for Signaling Phase.
              */
-            let (socketHandleForTakeAddress, sourceAddress, _) = self.openSocket(to: signalingServerAddress, addressSpace: .public, source: nil)   //Connect Syncronouslly
+            let (socketHandleForTakeAddress, sourceAddress, connectionStatus) = self.openSocket(to: signalingServerAddress, addressSpace: .public, source: nil)   //Connect Syncronouslly
+            Log(connectionStatus)
+            if !connectionStatus {
+                Log()
+                notifyOwnAddress(nil)
+                self.terminateCommunicate = true
+                return
+            }
             close(socketHandleForTakeAddress)
             let (socketHandle, _, connectionSucceeded) = self.openSocket(to: signalingServerAddress, addressSpace: .public, source: sourceAddress) //Connect Syncronouslly
-            
+            Log(connectionSucceeded)
+            if !connectionSucceeded {
+                Log()
+                notifyOwnAddress(nil)
+                self.terminateCommunicate = true
+                return
+            }
+
             self.socketHandles = [.signalingServer: ["": [.public: (.public, socketHandle, signalingServerAddress, nil, connectionSucceeded, 0)]]]
             guard let ip = IpaddressV4(sourceAddress.ip) else {
                 Log()
@@ -704,7 +738,7 @@ open class Socket {
             
             let my_token = Dht.hash(string: node.dhtAddressAsHexString.toString)?.0 ?? "token"
             Log("my_token =\(my_token)")
-            var remote_token = "_"
+//            var remote_token = "_"
 
             Log("Wait time: \(self.avoidContaminationTime) \(self.regularWaitTime)")
             /*
@@ -923,10 +957,10 @@ open class Socket {
                    let unConnectedOverlayNetworkAddress = unConnectedOverlayNetworkAddress,
                    let unConnectedPeerType = unConnectedPeerType,
                    let sokcetHandlePairByOverlayNetwork = self.socketHandles[unConnectedPeerType]?[unConnectedOverlayNetworkAddress.toString] {
+                    LogCommunicate("Find UnConnect Node cause Try Connect to A Node.")
                     attemptingConnectSocket = (unConnectedOverlayNetworkAddress, unConnectedPeerType)
                     Log(peerTypes)
                     Log(socketHandlesByPeerType as Any)
-                    Log()
                     let socketHandles = [sokcetHandlePairByOverlayNetwork[.public], sokcetHandlePairByOverlayNetwork[.private]]
                     let peerType = unConnectedPeerType
                     let overlayNetworkAddress = unConnectedOverlayNetworkAddress.toString
@@ -1023,7 +1057,7 @@ open class Socket {
                             }
                         }
                     } else {
-                        Log("Attempt Connect to A Unconnect Node first one.")
+                        LogCommunicate("Attempt Connect to A Unconnect Node first one.")
                         Log(socketHandles)
                         socketHandles.forEach {
                             var connectStatus: ConnectionStatus?
@@ -1184,8 +1218,8 @@ open class Socket {
                         }
                     }
                 }
-                LogCommunicate("--readable_fd_set: \(readable_fd_set) writable_fd_set:\(writable_fd_set)")
-                LogCommunicate("Select(Detect) read/write Events for Sockets (..<\(maxfd))")
+                Log("--readable_fd_set: \(readable_fd_set) writable_fd_set:\(writable_fd_set)")
+                Log("Select(Detect) read/write Events for Sockets (..<\(maxfd))")
                 //MARK: Select()
                 errno = 0   //clear as select() NOT Set errno.
                 let selectStatus = select(maxfd, &readable_fd_set, &writable_fd_set, &exception_fd_set, &selectTimeout)   //Block able
@@ -1206,7 +1240,7 @@ open class Socket {
                  ・コネクションの試みが終了すると(正常、異常とわず)、受信可能や送信可能(あるいは、両方とも可能)になります。
                  */
                 Log("\(mode) \(self.communicationProcess.phase) \(self.mode.stack[communicationProcess.phase].peerTypes)")
-                LogCommunicate("++readable_fd_set: \(readable_fd_set) writable_fd_set:\(writable_fd_set)")
+                Log("++readable_fd_set: \(readable_fd_set) writable_fd_set:\(writable_fd_set)")
                 Log("Exception")
                 //MARK: Exception Socket (purhaps select() status: -1)
                 if let exceptionSocketHandles = catchedSocketHandles(exception_fd_set, peerTypes: self.mode.stack[communicationProcess.phase].peerTypes) {
@@ -1237,12 +1271,14 @@ open class Socket {
                 if self.mode == .handshake {
                     //MARK: r/w handshake
                     Log()
-                    if remote_token != "_" && self.remote_knows_our_token {
+                    if self.remote_token != "_" && self.remote_knows_our_token {
                         LogEssential("++++++++++++++++++++ NAT Traversal - Succeeded. ++++++++++++++++++++")
                         Log("++++++++++++++++++++ TCP Hole Punching We Did! ++++++++++++++++++++")
                         Log("++++++++++++++++++++ We are done handshake for NAT Traversal - Hole was punched from both ends ++++++++++++++++++++")
                         self.inTransitionSignalingToHandshake = nil
                         self.passedGracePeriod = 0
+                        self.remote_token = "_"
+                        
                         /*
                          Go to Next Process.
                          */
@@ -1444,6 +1480,7 @@ open class Socket {
                             let receivedDataAsString: String = $0.element.withUnsafeBufferPointer { ccharbuffer in
                                 String(cString: ccharbuffer.baseAddress!)
                             }
+                            LogCommunicate(receivedDataAsString)
                             let dataRange = startRange..<(startRange + $0.element.count)
                             Log("\(dataRange.lowerBound) - \(dataRange.upperBound)")
                             startRange += ($0.element.count + 1)
@@ -1576,9 +1613,9 @@ open class Socket {
                                     if command == doCommand.rawValue {
                                         //MARK: r exchangeToken
                                         Log()
-                                        if remote_token == "_" {
-                                            remote_token = receivedCommandOperand[1]
-                                            Log("remote_token is now \(remote_token)")
+                                        if self.remote_token == "_" {
+                                            self.remote_token = receivedCommandOperand[1]
+                                            Log("remote_token is now \(self.remote_token)")
                                         }
                                         if receivedCommandOperand.count == 4 {
                                             Log("remote end signals it knows our token")
@@ -1753,7 +1790,7 @@ open class Socket {
                                         }
                                     }
                                     Log(sendNodeInformation ?? "nil")
-                                    Log("^_^\(sendNodeInformation?.toString as Any)")
+                                    LogCommunicate("^_^\(sendNodeInformation?.toString as Any)")
                                     guard let writableSocket = writableSocketHandles.first else {
                                         Log("_ _")
                                         return false
@@ -1763,7 +1800,7 @@ open class Socket {
                                             send(writableSocket, $0.baseAddress, $0.count, 0)
                                         }
                                     }
-                                    Log(sendNodeInformationStatus ?? "nil")
+                                    LogCommunicate(sendNodeInformationStatus ?? "nil")
                                     communicationProcess.increment()
                                 }
                             }
@@ -1776,7 +1813,7 @@ open class Socket {
                             var sendAckStatus: Int?
                             let sendAck = doCommand.rawValue.utf8CString  //null terminated string.
                             Log(sendAck)
-                            Log(sendAck.toString)
+                            LogCommunicate(sendAck.toString)
                             guard let writableSocket = writableSocketHandles.first else {
                                 Log("_ _")
                                 return false
@@ -1784,7 +1821,7 @@ open class Socket {
                             sendAckStatus = sendAck.withUnsafeBytes {
                                 send(writableSocket, $0.baseAddress, $0.count, 0)
                             }
-                            Log(sendAckStatus ?? "nil")
+                            LogCommunicate(sendAckStatus ?? "nil")
                             communicationProcess.increment()
                         } else if let doCommand = mode.stack[communicationProcess.phase].doCommands?.first, doCommand == .translate {
                             //MARK: w translate
@@ -1804,7 +1841,7 @@ open class Socket {
                             var sendNodeInformation: ContiguousArray<CChar>?
                             sendNodeInformation = (doCommand.rawValue + " " + String(toOverlayNetworkAddress.count) + " " + toOverlayNetworkAddress.toString).utf8CString
                             Log(sendNodeInformation ?? "nil")
-                            Log(sendNodeInformation?.toString as Any)
+                            LogCommunicate(sendNodeInformation?.toString as Any)
                             if let sendNodeInformation = sendNodeInformation {
                                 guard let writableSocket = writableSocketHandles.first else {
                                     Log("_ _")
@@ -1814,7 +1851,7 @@ open class Socket {
                                     send(writableSocket, $0.baseAddress, $0.count, 0)
                                 }
                             }
-                            Log(sendNodeInformationStatus ?? "nil")
+                            LogCommunicate(sendNodeInformationStatus ?? "nil")
                             self.claimTranslate = true
                             communicationProcess.increment()
                         } else if let doCommand = self.mode.stack[communicationProcess.phase].doCommands?.contains(.exchangeToken), doCommand {
@@ -1825,15 +1862,15 @@ open class Socket {
                              Should Shake Hand For Nat Traversable.
                              */
                             var sendHandshake: ContiguousArray<CChar>?
-                            if remote_token != "_" {
+                            if self.remote_token != "_" {
                                 Log("have taken remote node token.")
-                                sendHandshake = (doCommand.rawValue + " " + my_token + " " + remote_token + " " + "ok").utf8CString
+                                sendHandshake = (doCommand.rawValue + " " + my_token + " " + self.remote_token + " " + "ok").utf8CString
                             } else {
                                 Log("do not have remote node token yet.")
-                                sendHandshake = (doCommand.rawValue + " " + my_token + " " + remote_token).utf8CString
+                                sendHandshake = (doCommand.rawValue + " " + my_token + " " + self.remote_token).utf8CString
                             }
                             Log(sendHandshake ?? "nil")
-                            Log(sendHandshake?.toString as Any)
+                            LogCommunicate(sendHandshake?.toString as Any)
                             var sentStatus: Int?
                             let peerType = Mode.PeerType.peerNode
                             self.socketHandles[.peerNode]?.forEach {
@@ -1853,7 +1890,7 @@ open class Socket {
                                                 return send(writableSocket, $0.baseAddress, $0.count, 0)
                                             }
                                             let sendError = errno
-                                            Log("Wrote Length: \(String(describing: sentStatus))")
+                                            LogCommunicate("Wrote Length: \(String(describing: sentStatus))")
                                             LogPosixError()  //57: 未接続  32: broken pipe
                                             if sendError == 32 {
                                                 Log("Broken Pipe - 送信もしくは受信が閉じられている")
@@ -1883,9 +1920,7 @@ open class Socket {
                                 Log("Not Have Command to Send.")
                                 return false
                             }
-                            
-                            Log(firstJob.token)
-                            LogEssential(firstJob)
+                            LogEssential("\(firstJob.command) \(firstJob.operand)")
                             /*
                              overlayNetworkAddress →ip address pair への翻訳が済んでいたら
                              ↓
@@ -1897,7 +1932,7 @@ open class Socket {
                              */
                             var commandInstance: CommandProtocol = firstJob.command
                             if firstJob.command.rawValue == "", let command = node.premiumCommand {
-                                LogEssential()
+                                Log()
                                 /*
                                  Won't be Use this.
                                  
@@ -1974,14 +2009,14 @@ open class Socket {
                                              SO_NOSIGPIPE: NOT generate signal as broken communication pipe (must set the flag on setsockopt().)
                                              */
                                             let (findipResult, addressSpace, _) = self.findIpAndAddressSpace(socketFd: writableSocket)
-                                            LogEssential("\(sendDataAsCChar.toString as Any) to \(findipResult as Any)")
+                                            LogCommunicate("\(sendDataAsCChar.toString as Any) to \(findipResult as Any)")
                                             //TCP_NODELAY: don't delay send to coalesce packets
                                             sentStatus = sendDataAsCChar.withUnsafeBytes {
                                                 send(writableSocket, $0.baseAddress, $0.count, 0)
                                             }
                                             LogPosixError()
                                         }
-                                        LogEssential(sentStatus ?? "nil")
+                                        LogCommunicate(sentStatus ?? "nil")
                                     }
                                 } else {
                                     LogEssential("----------- Did NOT Translate cause Go to signaling mode for Ask Addresses to Signaling Server. -----------")
@@ -2075,7 +2110,7 @@ open class Socket {
     }
 
     private func LogCommunicate(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-        #if false
+        #if true
         let className = (fileName as NSString).lastPathComponent
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
