@@ -146,7 +146,7 @@ public class Finger: Equatable {
     }
 
     public func print() {
-#if false
+#if true
         Swift.print("---Stored-------\n")
         do {
             let result = try String(contentsOf: URL(fileURLWithPath: Finger.archiveFilePath), encoding: .utf8)
@@ -160,12 +160,12 @@ public class Finger: Equatable {
     
     //Cached判定
     public static func isCached() -> Bool {
-        Log()
+//        Log()
         if !FileManager.default.fileExists(atPath: Finger.archiveFilePath) {
-            Log("No Cached")
+            Log("No Cached Finger table")
             return false
         }
-        Log("Cached")
+        Log("Have Cached Finger table")
         return true
     }
     

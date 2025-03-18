@@ -287,15 +287,20 @@ extension Data: OverlayNetworkBinaryAddress {
     public static var ModuloAsExponentOf2: UInt = 512
     public static var Radix: UInt = 256
     public static var LSBIndex: UInt = 0
-    public static var Modulo: Data = Data(repeating: 0, count: Int(ModuloAsExponentOf2 / 8)) + Data(repeating: 1, count: 1)
+    public static var Modulo: Data = Data(repeating: 0, count: Int(ModuloAsExponentOf2 / 8)) + Data(repeating: 1, count: 1) //UInt8 * 65(0...64)
     public var countAsData: Int {
         self.count
     }
     //New Type Rewrite function
+//    public func decrementAsData(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (OverlayNetworkBinaryAddress, String) {
+//        var newData = self
+//        let sign = self.decrement(&newData, index: index, decrementValue: decrementValue, turnaround: turnaround, savedIndex: savedIndex, savedDecrementValue: savedDecrementValue, carryDown: carryDown)
+//        return (newData, sign)
+//    }
     public func decrementAsData(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (OverlayNetworkBinaryAddress, String) {
         return self.decrement(index: index, decrementValue: decrementValue, turnaround: turnaround, savedIndex: savedIndex, savedDecrementValue: savedDecrementValue, carryDown: carryDown)
     }
-    
+
     /*
      -Abstract
      Radix: 256 (0b100000000)   0x10

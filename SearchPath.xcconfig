@@ -1,0 +1,4 @@
+FRAMEWORK_SEARCH_PATHS = $(inherited)
+HEADER_SEARCH_PATHS = /Users/yoichi/Library/org.swift.swiftpm/swift-sdks/swift-6.0-DEVELOPMENT-SNAPSHOT-2024-07-02-a_static-linux-0.0.1.artifactbundle/swift-6.0-DEVELOPMENT-SNAPSHOT-2024-07-02-a_static-linux-0.0.1/swift-linux-musl/musl-1.2.5.sdk/x86_64/usr/include $(inherited)
+SYSTEM_HEADER_SEARCH_PATHS = /Users/yoichi/Library/org.swift.swiftpm/swift-sdks/swift-6.0-DEVELOPMENT-SNAPSHOT-2024-07-02-a_static-linux-0.0.1.artifactbundle/swift-6.0-DEVELOPMENT-SNAPSHOT-2024-07-02-a_static-linux-0.0.1/swift-linux-musl/musl-1.2.5.sdk/x86_64/usr/include $(inherited)
+LIBRARY_SEARCH_PATHS = $(inherited)

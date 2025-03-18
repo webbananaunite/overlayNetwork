@@ -6,9 +6,21 @@
 //  Copyright © 2020 WEB BANANA UNITE Tokyo-Yokohama LPC. All rights reserved.
 //
 
+#if os(macOS) || os(iOS)
 import Foundation
 import Network
 import CryptoKit
+#elseif canImport(Glibc)
+import Glibc
+import Foundation
+#elseif canImport(Musl)
+import Musl
+import Foundation
+#elseif os(Windows)
+import ucrt
+#else
+#error("UnSupported platform")
+#endif
 
 public protocol NodeProtocol: Equatable {
     /*
@@ -138,6 +150,7 @@ public protocol NodeProtocol: Equatable {
     var runAsBootNode: Bool {
         get
     }
+    static func behaviorAsBootNode() -> Bool
     
     var ipAndPortString: String? {
         get
@@ -194,7 +207,7 @@ public protocol NodeProtocol: Equatable {
 /*
  Node           通信ノード／ウォレット
  */
-open class Node: ObservableObject, NodeProtocol {
+open class Node: NodeProtocol {
     public static func == (lhs: Node, rhs: Node) -> Bool {
         if lhs.dhtAddressAsHexString.equal(rhs.dhtAddressAsHexString) {
             return true
@@ -530,7 +543,7 @@ open class Node: ObservableObject, NodeProtocol {
 #endif
     }
     open func printFingerTableEssential() {
-#if false
+#if true
         print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
         print("[start]     [interval]     [node]\n")
@@ -561,7 +574,7 @@ open class Node: ObservableObject, NodeProtocol {
         Finger.storeLastLine()
     }
     open func printArchivedFingerTable() {
-        #if false
+        #if true
         print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
         Log(fingers.count)
         if let finger = fingers.first {
@@ -683,11 +696,9 @@ open class Node: ObservableObject, NodeProtocol {
                 }
                 /*
                  Test Mode
-                 When Run As Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
+                 Behavior as Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
                  */
-                let setArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
-                let envVar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
-                if setArgv || envVar != "" {
+                if Node.behaviorAsBootNode() {
                     Log()
                     /*
                      behavior as Boot Node.
@@ -715,6 +726,16 @@ open class Node: ObservableObject, NodeProtocol {
         Log("dhtAddressAsHexString:\(dhtAddressAsHexString) ip:\(ip) port:\(port)")
         Dump(binaryAddress)
     }
+    public static func behaviorAsBootNode() -> Bool {
+        let runAsBootNodeOnArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
+        let runAsBootNodeOnEnvvar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
+        if runAsBootNodeOnArgv || runAsBootNodeOnEnvvar != "" {
+            Log()
+            return true
+        } else {
+            return false
+        }
+    }
     /*
      Construct New Node for Own Node with Generating New DhtAddress.
      
@@ -733,11 +754,9 @@ open class Node: ObservableObject, NodeProtocol {
             }
             /*
              Test Mode
-             When Run As Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
+             Behavior as Boot Node, Set {RunAsBootNode} as Run Argument / Environment Variable on Edit Scheme on Xcode.
              */
-            let setArgv = ProcessInfo.processInfo.arguments.contains("RunAsBootNode")
-            let envVar = ProcessInfo.processInfo.environment["RunAsBootNode"] ?? ""
-            if setArgv || envVar != "" {
+            if Node.behaviorAsBootNode() {
                 Log()
                 /*
                  behavior as Boot Node.
@@ -822,7 +841,7 @@ open class Node: ObservableObject, NodeProtocol {
         var nodeProtocolSelf: any NodeProtocol = self
         let nextOperand = commandInstance?.receive(node: &nodeProtocolSelf, operands: operand, from: sentOverlayNetworkAddress, token: token)
         
-        guard let nextOperand = nextOperand else {Log()
+        guard let nextOperand = nextOperand else {LogEssential()
             return
         }
         
@@ -842,13 +861,13 @@ open class Node: ObservableObject, NodeProtocol {
              */
             Log("token: \(token)")
             Log("type: [.delegate, .local]")
-            guard let job = self.fetchJobWithType(token: token, type: [.delegate, .local]), let _ = job.result else { Log()
+            guard let job = self.fetchJobWithType(token: token, type: [.delegate, .local]), let _ = job.result else { LogEssential()
                 self.printQueueEssential()
                 return
             }
             
             if let previousJob = self.fetchPreviousJobWithType(token: token, type: [.delegate, .local, .delegated]) {
-                Log("PreviousJob: \(previousJob.command) - \(previousJob.command.rawValue)")
+                LogEssential("PreviousJob: \(previousJob.command) - \(previousJob.command.rawValue)")
                 Log("fromOverlayNetworkAddress: \(previousJob.fromOverlayNetworkAddress) - \(nextOperand) - \(previousJob.token)")
                 //Send reply PREVIOUS command
                 previousJob.command.reply(node: self, to: previousJob.fromOverlayNetworkAddress, operand: nextOperand, token: previousJob.token) {
@@ -856,7 +875,7 @@ open class Node: ObservableObject, NodeProtocol {
                     Log("Sent reply to \(sentOverlayNetworkAddress)")
                 }
             } else {
-                Log("No PreviousJobs")
+                LogEssential("No PreviousJobs")
             }
         } else {
             Log(command)
@@ -872,7 +891,7 @@ open class Node: ObservableObject, NodeProtocol {
 //                Log("Sent reply to \(sentOverlayNetworkAddress)")
 //            }
             var commandInstance: CommandProtocol? = Command(rawValue: command)
-            LogEssential(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
+            Log(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
             if commandInstance == nil {
                 Log()
                 /*
@@ -880,7 +899,7 @@ open class Node: ObservableObject, NodeProtocol {
                  Use Appendix Premium Command.
                  */
                 commandInstance = self.premiumCommand?.command(command)
-                LogEssential(commandInstance)
+                Log(commandInstance)
             }
             commandInstance?.reply(node: self, to: sentOverlayNetworkAddress, operand: nextOperand, token: token) {
                 a in
@@ -965,15 +984,24 @@ open class Node: ObservableObject, NodeProtocol {
         Log()
         var addrList: UnsafeMutablePointer<ifaddrs>? = nil
         let err = getifaddrs(&addrList)
-        guard err == 0, let start = addrList else { return [] }
+//        guard err == 0, let start = addrList else { return [] }
+        let start = addrList
+//        defer { freeifaddrs(start) }
+        guard err == 0 else { return [] }
         defer { freeifaddrs(start) }
-        return sequence(first: start, next: { $0.pointee.ifa_next })
+//        return sequence(first: start, next: { $0.pointee.ifa_next })
+        return sequence(first: start, next: { $0?.pointee.ifa_next })
             .compactMap { i -> Data? in
-                guard
-                    (i.pointee.ifa_flags & UInt32(bitPattern: IFF_BROADCAST)) != 0,
-                    let sa = i.pointee.ifa_addr
+//                guard
+//                    (i.pointee.ifa_flags & UInt32(bitPattern: IFF_BROADCAST)) != 0,
+//                    let sa = i.pointee.ifa_addr
+//                else { return nil }
+                guard let aaa = i,
+                    (aaa.pointee.ifa_flags & UInt32(bitPattern: IFF_BROADCAST)) != 0,
+                      let sa = aaa.pointee.ifa_addr
                 else { return nil }
-                var result = Data(UnsafeRawBufferPointer(start: sa, count: Int(sa.pointee.sa_len)))
+//                var result = Data(UnsafeRawBufferPointer(start: sa, count: Int(sa.pointee.sa_len)))
+                var result = Data(UnsafeRawBufferPointer(start: sa, count: Int(MemoryLayout<sockaddr>.size)))
                 switch CInt(sa.pointee.sa_family) {
                 case AF_INET:
                     result.withUnsafeMutableBytes { buf in
@@ -1242,6 +1270,7 @@ open class Node: ObservableObject, NodeProtocol {
             }
         }
         self.predecessor = self
+        self.printFingerTableEssential()
         return nil  //Don't send reply command.
     }
         

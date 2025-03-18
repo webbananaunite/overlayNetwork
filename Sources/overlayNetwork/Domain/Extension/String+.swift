@@ -4,10 +4,25 @@
  */
 //
 //  String+.swift
-//  EnglishApp
+//  overlayNetwork
 //
+
+#if os(macOS) || os(iOS)
 import Foundation
 import CommonCrypto
+#elseif canImport(Glibc)
+import Glibc
+import Foundation
+import Crypto
+#elseif canImport(Musl)
+import Musl
+import Foundation
+import Crypto
+#elseif os(Windows)
+import ucrt
+#else
+#error("UnSupported platform")
+#endif
 
 public enum HashOutputType {
     case hex
@@ -17,19 +32,35 @@ public enum HashOutputType {
 public enum HashType {
     case md5
     case sha1
-    case sha224
+//    case sha224
     case sha256
     case sha384
     case sha512
     
     var length: Int32 {
+#if os(Linux)
+        let _ = Data(Insecure.MD5.hash(data: Data()))
+#endif
+        /*
+         cf.
+         /swift-crypto/Sources/Crypto/Digests/HashFunctions_SHA2.swift
+         */
         switch self {
-        case .md5: return CC_MD5_DIGEST_LENGTH
-        case .sha1: return CC_SHA1_DIGEST_LENGTH
-        case .sha224: return CC_SHA224_DIGEST_LENGTH
-        case .sha256: return CC_SHA256_DIGEST_LENGTH
-        case .sha384: return CC_SHA384_DIGEST_LENGTH
-        case .sha512: return CC_SHA512_DIGEST_LENGTH
+#if os(macOS) || os(iOS)
+            case .md5: return CC_MD5_DIGEST_LENGTH
+            case .sha1: return CC_SHA1_DIGEST_LENGTH
+//            case .sha224: return CC_SHA224_DIGEST_LENGTH
+            case .sha256: return CC_SHA256_DIGEST_LENGTH
+            case .sha384: return CC_SHA384_DIGEST_LENGTH
+            case .sha512: return CC_SHA512_DIGEST_LENGTH
+#elseif os(Linux)
+            case .md5: return Int32(Insecure.MD5.byteCount)
+            case .sha1: return Int32(Insecure.SHA1.byteCount)
+//            case .sha224: return Int32(SHA224.byteCount)
+            case .sha256: return Int32(SHA256.byteCount)   /// The number of bytes in a ``SHA256`` digest.
+            case .sha384: return Int32(SHA384.byteCount)
+            case .sha512: return Int32(SHA512.byteCount)
+#endif
         }
     }
 }

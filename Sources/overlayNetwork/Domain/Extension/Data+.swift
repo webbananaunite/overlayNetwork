@@ -4,10 +4,18 @@
  */
 //
 //  Data+.swift
-//  EnglishApp
+//  overlayNetwork
 //
 import Foundation
+#if os(macOS) || os(iOS)
 import CryptoKit
+#elseif canImport(Glibc)
+import Crypto
+#elseif canImport(Musl)
+import Crypto
+#else
+#error("UnSupported platform")
+#endif
 
 public extension Data {
     /*
@@ -245,14 +253,17 @@ public extension Data {
         Log()
         Dump(self)
         var newSelf = self
+//        var newSelf = Data()
         Log(exponent)
         let index = UInt(Int(exponent) / Data.byteBits)
         let remainder = UInt8(0b01 << (exponent - index*8))
         Log(index)
         Log(remainder)
         var sign: String
+//        (newSelf, sign) = newSelf.decrement(index: index, decrementValue: remainder)
         (newSelf, sign) = newSelf.decrement(index: index, decrementValue: remainder)
         Dump(newSelf)
+//        return newSelf
         return newSelf
     }
 
@@ -284,21 +295,17 @@ public extension Data {
      -Return
         if MostSignificantByte is UInt8(00), Indicate Negative Value.
      */
-    //New Type Rewrite function
-    func decrement(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (Data, String) {Log("---")
-        Log(index)
-        Log(savedIndex)
-        Dump(self)
-        Log(decrementValue)
-        Log(turnaround ?? "nil")
+    #if RECURSIVE_WAY
+    /*
+     Recursive way (this cause stack memory(call frame) issue.)
+     */
+    func decrement(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (Data, String) {
         var newTurnaround: Bool
         var newSelf = self
         var sign: String
         if let turnaround = turnaround {
-            Log()
             newTurnaround = turnaround
         } else {
-            Log()
             /*
              if decrementValue*2^index == 0...abs(self)
                 as decrementValue*2^index <= abs(self)
@@ -309,24 +316,16 @@ public extension Data {
                 turnaround = true
                 decrementValue - self
              */
-            Dump(Data.DataNull)
-            Dump(self)
-            Dump(Data(repeating: 0, count: Int(index)) + Data(repeating: decrementValue, count: 1))
             newTurnaround = !Data.DataNull.inRange(intervalType: .include, to: self, about: Data(repeating: 0, count: Int(index)) + Data(repeating: decrementValue, count: 1))
-            Log(newTurnaround)
             if newTurnaround {
                 let newIndex = Data.LSBIndex
                 (newSelf, sign) = newSelf.decrement(index: newIndex, decrementValue: newIndex == index ? decrementValue : 0, turnaround: newTurnaround, savedIndex: index, savedDecrementValue: decrementValue)
-                Log()
                 return (newSelf, sign)
             }
         }
-        Log(newTurnaround)
         if Int(index) > (newSelf.count - 1) {
-            Log()
             newSelf += (0..<(Int(index) - (newSelf.count - 1))).map {_ in Data.DataNull}.joined()
         }
-        Dump(newSelf)
 
         /*
          Data[index] - val = ans
@@ -356,28 +355,20 @@ public extension Data {
          0x 92894379...
        - 0x  3000000...   //Only 2^n
        ----------------
-
-
          */
         var lhs, rhs: UInt8
         if newTurnaround {
-            Log("T decrementValue - self[index]")
             lhs = decrementValue
             rhs = newSelf[Int(index)]
             sign = "-"
         } else {
-            Log("self[index] - decrementValue")
             lhs = newSelf[Int(index)]
             rhs = decrementValue
             sign = "+"
         }
-        Log("(\(index)) \(lhs) - \(rhs) turnaround:\(newTurnaround) carryDown:\(carryDown) savedIndex:\(savedIndex)")
         let decrementedByte: Int = Int(lhs) - Int(rhs)
 
-        Log(decrementedByte)
-        Log(carryDown)
         if ((newTurnaround && index == savedIndex) || (!newTurnaround && !carryDown && decrementedByte >= 0) || (carryDown && decrementedByte > 0)) {
-            Log("Positive result OR index == savedIndex")
             /*
              Positive Result
              */
@@ -387,38 +378,157 @@ public extension Data {
                 newSelf[Int(index)] = UInt8(decrementedByte)
             }
         } else {
-            Log("Negative result OR CarryDown(decremented <= 0)")
             /*
              Negative Result
 
              Subtract Sequentialy from LSB.
              */
-            Log()
             let carryDownValue: UInt = index == Data.LSBIndex ? Data.Radix : Data.Radix - 1
-            Log(carryDownValue)
             if newTurnaround {
-                Log("T \(carryDownValue) + \(UInt(decrementValue)) - \(UInt(newSelf[Int(index)]))")
                 newSelf[Int(index)] = UInt8(carryDownValue + UInt(decrementValue) - UInt(newSelf[Int(index)]))
             } else {
-                Log("\(carryDownValue) + \(UInt(newSelf[Int(index)])) - \(UInt(decrementValue))")
                 newSelf[Int(index)] = UInt8(carryDownValue + UInt(newSelf[Int(index)]) - UInt(decrementValue))
             }
             var nowDecrementValue: UInt8
             if let value = savedDecrementValue {
-                Log()
                 nowDecrementValue = value - 1
             } else {
-                Log()
                 nowDecrementValue = 0
             }
-            Log(index)
-            Log(savedIndex)
-            Log(nowDecrementValue)
-            Log(savedDecrementValue)
             (newSelf, sign) = newSelf.decrement(index: UInt(index + 1), decrementValue: index + 1 == savedIndex ? nowDecrementValue : 0, turnaround: newTurnaround, savedIndex: savedIndex, savedDecrementValue: savedDecrementValue, carryDown: (turnaround == nil || turnaround == false) ? true : false)
         }
         return (newSelf, sign)
     }
+    #else
+    /*
+     Repeat way (ordinary way)
+     */
+    func decrement(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (Data, String) {
+        //use as functional arguments
+        struct Arguments {
+            var index: UInt
+            var decrementValue: UInt8
+            var turnaround: Bool?
+            var savedIndex: UInt?
+            var savedDecrementValue: UInt8?
+            var carryDown: Bool
+        }
+        var newTurnaround: Bool
+        var newSelf = self
+        var sign: String
+        var arguments = Arguments(index: index, decrementValue: decrementValue, turnaround: turnaround, savedIndex: savedIndex, savedDecrementValue: savedDecrementValue, carryDown: carryDown)
+        var whileCounter = 0
+        while true {
+            whileCounter += 1
+            Log(whileCounter);
+            if let turnaround = arguments.turnaround {
+                newTurnaround = turnaround
+            } else {
+                /*
+                 if decrementValue*2^index == 0...abs(self)
+                 as decrementValue*2^index <= abs(self)
+                 turnaround = false
+                 self - decrementValue
+                 
+                 ,otherwise
+                 turnaround = true
+                 decrementValue - self
+                 */
+                newTurnaround = !Data.DataNull.inRange(intervalType: .include, to: self, about: Data(repeating: 0, count: Int(arguments.index)) + Data(repeating: arguments.decrementValue, count: 1))
+                if newTurnaround {
+                    let newIndex = Data.LSBIndex
+                    arguments = Arguments(index: newIndex, decrementValue: newIndex == arguments.index ? decrementValue : 0, turnaround: newTurnaround, savedIndex: arguments.index, savedDecrementValue: arguments.decrementValue, carryDown: false)
+                    Log("continue");
+                    continue;
+                }
+            }
+            if Int(arguments.index) > (newSelf.count - 1) {   //index=59 or 62 の時ここでエラーとなる
+                newSelf += (0..<(Int(arguments.index) - (newSelf.count - 1))).map {_ in Data.DataNull}.joined()
+            }
+            /*
+             Data[index] - val = ans
+             if ans == Positive
+             Data[index] = ans
+             else
+             //１の位から減算しなおす
+             //再帰手続きする
+             decrement2(0, 256+Data[index])
+             29382
+             -30000
+             ------
+             00618
+             
+             29382
+             -30001
+             ------
+             00619
+             
+             29382
+             -2999(10)
+             
+             20382
+             - 1000
+             ------
+             
+             0x 92894379...
+             - 0x  3000000...   //Only 2^n
+             ----------------
+             */
+            var lhs, rhs: UInt8
+            if newTurnaround {
+                lhs = arguments.decrementValue
+                rhs = newSelf[Int(arguments.index)]
+                sign = "-"
+            } else {
+                lhs = newSelf[Int(arguments.index)]
+                rhs = arguments.decrementValue
+                sign = "+"
+            }
+            let decrementedByte: Int = Int(lhs) - Int(rhs)
+            
+            if ((newTurnaround && arguments.index == arguments.savedIndex) || (!newTurnaround && !arguments.carryDown && decrementedByte >= 0) || (arguments.carryDown && decrementedByte > 0)) {
+                /*
+                 Positive Result
+                 */
+                if arguments.carryDown {
+                    newSelf[Int(arguments.index)] = UInt8(decrementedByte - 1)
+                } else {
+                    newSelf[Int(arguments.index)] = UInt8(decrementedByte)
+                }
+                /*
+                 演算終了
+                 */
+                Log("break");
+                break
+            } else {
+                /*
+                 Negative Result
+                 
+                 Subtract Sequentialy from LSB.
+                 */
+                let carryDownValue: UInt = arguments.index == Data.LSBIndex ? Data.Radix : Data.Radix - 1
+                if newTurnaround {
+                    dump(newSelf)
+                    Log("T \(carryDownValue) + \(UInt(arguments.decrementValue)) - \(UInt(newSelf[Int(arguments.index)]))")
+                    newSelf[Int(arguments.index)] = UInt8(carryDownValue + UInt(arguments.decrementValue) - UInt(newSelf[Int(arguments.index)]))
+                } else {
+                    newSelf[Int(arguments.index)] = UInt8(carryDownValue + UInt(newSelf[Int(arguments.index)]) - UInt(arguments.decrementValue))
+                }
+                var nowDecrementValue: UInt8
+                if let value = arguments.savedDecrementValue {
+                    nowDecrementValue = value - 1
+                } else {
+                    nowDecrementValue = 0
+                }
+                arguments = Arguments(index: UInt(arguments.index + 1), decrementValue: arguments.index + 1 == arguments.savedIndex ? nowDecrementValue : 0, turnaround: newTurnaround, savedIndex: arguments.savedIndex, savedDecrementValue: arguments.savedDecrementValue, carryDown: (arguments.turnaround == nil || arguments.turnaround == false) ? true : false)
+                Log("continue")
+                continue
+            }
+        }
+        Log("End while loop")
+        return (newSelf, sign)
+    }
+    #endif
 
     /*
      -Abstract

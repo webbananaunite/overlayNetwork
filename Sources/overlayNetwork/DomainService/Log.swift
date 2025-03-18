@@ -6,8 +6,20 @@
 //  Copyright © 2020 WEB BANANA UNITE Tokyo-Yokohama LPC. All rights reserved.
 //
 
+#if os(macOS) || os(iOS)
 import Foundation
-import UIKit
+//import UIKit
+#elseif canImport(Glibc)
+import Glibc
+import Foundation
+#elseif canImport(Musl)
+import Musl
+import Foundation
+#elseif os(Windows)
+import ucrt
+#else
+#error("UnSupported platform")
+#endif
 
 public func Log(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
     #if false
@@ -19,12 +31,12 @@ public func Log(_ object: Any = "", functionName: String = #function, fileName: 
 //    } else {
 //        return
 //    }
-//    if className == "Socket.swift" {
-//        return
-//    }
-    if className == "Data+.swift" {
+    if className == "Socket.swift" {
         return
     }
+//    if className == "Data+.swift" {
+//        return
+//    }
     if className == "Queue.swift" {
         return
     }
@@ -82,13 +94,13 @@ public func Dump(_ object: Any = "", functionName: String = #function, fileName:
 //    if className == "Socket.swift" {
 //        return
 //    }
-    if className == "Data+.swift" {
-        return
-    }
-    let formatter = DateFormatter()
-    formatter.dateFormat = "HH:mm:ss"
-    let dateString = formatter.string(from: Date())
-    print("\(dateString) \(className) \(functionName) l.\(lineNumber)\n")
+//    if className != "Data+.swift" {
+//        return
+//    }
+//    let formatter = DateFormatter()
+//    formatter.dateFormat = "HH:mm:ss"
+//    let dateString = formatter.string(from: Date())
+//    print("\(dateString) \(className) \(functionName) l.\(lineNumber)\n")
 //    print((object as! Data).count)
     if object is Data {
         dump((object as! NSData))

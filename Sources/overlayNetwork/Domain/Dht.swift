@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import overlayNetworkObjc
+//import overlayNetworkObjc
 
 open class Dht {
     /*
@@ -185,13 +185,16 @@ open class Dht {
         //get ip port from txt record.
         let signalings = getBootNodesAndStagingServerAddress().1
         guard signalings.count > 0 else {
+            Log()
             return nil
         }
         guard let signalingServerIpAndPort = getBootNodesAndStagingServerAddress().1.randomElement() else {
+            Log()
             return nil
         }
         let signalingServerIpAndPorts = signalingServerIpAndPort.components(separatedBy: ":")
         guard let portNum = Int(signalingServerIpAndPorts[1]), let ip = IpaddressV4(ipAddressString: signalingServerIpAndPorts[0])?.toString() else {
+            Log()
             return nil
         }
         #if false
@@ -231,7 +234,14 @@ open class Dht {
     }
 
     class func getBootNodesAndStagingServerAddress() -> ([String], [String]) {
-        guard let answer = Dns.fetchTXTRecords(domain) else {
+        Log()
+//        guard let answer = Dns.fetchTXTRecords(domain) else {
+//            return ([], [])
+//        }
+        guard let answer = Dns.getservers(domain) else {
+//        var answer = String(repeating: " ", count: 1024)
+//        guard let answer = Dns.getservers(domain, answer: &answer) else {
+            Log()
             return ([], [])
         }
         Log(answer)
@@ -243,9 +253,9 @@ open class Dht {
             $0.components(separatedBy: "=")[0] == txtKeyForSignaling
         }.first
         let bootnodes = bootNodeTxtRecord?.components(separatedBy: "=")[1].components(separatedBy: " ")
-        Log(bootnodes ?? "")
+//        Log(bootnodes ?? "")
         let stagingServers = stagingServerAddressTxtRecord?.components(separatedBy: "=")[1].components(separatedBy: " ")
-        Log(stagingServers ?? "")
+//        Log(stagingServers ?? "")
         return (bootnodes ?? [], stagingServers ?? [])
     }
 

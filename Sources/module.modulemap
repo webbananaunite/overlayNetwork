@@ -2,9 +2,30 @@ module overlayNetwork {
     export *
 }
 
-module overlayNetworkObjc {
-    header "headers/Dns.h"
-    header "headers/overlayNetwork.h"
-    header "headers/HardWareResources.h"
-    export *
-}
+//module overlayNetworkObjc {
+//    header "headers/Dns.h"
+//    header "headers/overlayNetwork.h"
+//    header "headers/HardWareResources.h"
+//    export *
+//}
+
+//framework module Resolv [system] {
+//    header "Resolv/include/Resolv9.h"
+//    export *
+//}
+//module resolv [system] {
+//    link "resolv"
+//    umbrella header "Resolv/include/Resolv9.h"
+//    export *
+//    module * { export * }
+//}
+//module Myresolv [system] {
+//framework module Resolving [system] {
+//    umbrella header "Sources/Resolving/include/Resolving9.h"
+////    umbrella header "Sources/Resolving/include/Resolving.h"
+////    header "Resolving/include/Resolving.h"
+////    umbrella "Resolving/include"
+//    export *
+//    module * { export * }
+//    link "resolving"
+//}

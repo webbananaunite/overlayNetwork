@@ -1,0 +1,8 @@
+module Resolving [system] {
+    umbrella header "./include/Resolving.h"
+    
+//    header "include/Resolving9.h"
+    link "resolving"
+    export *
+    module * { export * }
+}
