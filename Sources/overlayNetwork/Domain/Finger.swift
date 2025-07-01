@@ -41,7 +41,8 @@ import Foundation
  */
 public class Finger: Equatable {
     public static func == (lhs: Finger, rhs: Finger) -> Bool {
-        guard let lhsNode = lhs.node, let rhsNode = rhs.node else {
+//        guard let lhsNode = lhs.node, let rhsNode = rhs.node else {
+        guard let lhsNode = lhs.successorNodeCandidates[0], let rhsNode = rhs.successorNodeCandidates[0] else {
             return false
         }
         if lhs.start.dhtAddressAsHexString.equal(rhs.start.dhtAddressAsHexString)
@@ -59,11 +60,18 @@ public class Finger: Equatable {
         archivedDirectory + archiveFile
     }
     
-    public init?(start: Node, interval: [Node], node: Node?) {
+//    public init?(start: Node, interval: [Node], node: Node?) {
+    public init?(start: Node, interval: [Node], nodes: [Node?]?) {
         self.start = start
         self.interval = interval
-        self.node = node
         
+//        self.node = node
+//        self.successorNodeCandidates += [node]
+//        self.addSuccessorNodeAsFirstCandidates(node: node)
+        if let nodes = nodes {
+            self.successorNodeCandidates = nodes
+        }
+
         if !FileManager.default.fileExists(atPath: Finger.archivedDirectory) {
             do {
                 try FileManager.default.createDirectory(atPath: Finger.archivedDirectory, withIntermediateDirectories: true, attributes: nil)
@@ -78,7 +86,47 @@ public class Finger: Equatable {
             if interval.count > 2 {interval = oldValue}
         }
     }
-    var node: Node?
+//    var node: Node?
+    /*
+     Sortable Queue As Successor Node Candidates.
+     */
+//    var nodes = [Node?]()
+    var successorNodeCandidates = [Node?]()
+
+    public func addSuccessorNodeAsFirstCandidates(node: Node?) {
+        Log()
+        self.successorNodeCandidates.insert(node, at: 0)
+    }
+//    public func successorCandidateNodes(node: [Node]) {
+//        Log()
+//        self.successorNodeCandidates = node
+//    }
+    public var firstSuccessorNode: Node? {
+        guard self.successorNodeCandidates.count >= 1 else {
+            return nil
+        }
+        return self.successorNodeCandidates[0]
+    }
+    public var secondSuccessorNode: Node? {
+        guard self.successorNodeCandidates.count >= 2 else {
+            return nil
+        }
+        return self.successorNodeCandidates[1]
+    }
+    public var isThereMultipleCandidates: Bool {
+        return self.successorNodeCandidates.count > 1
+    }
+    public func swapFirstSuccessor(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) {
+        LogEssential(self.successorNodeCandidates)
+        if let firstSuccessorNodeDhtAddress = self.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress), self.isThereMultipleCandidates {
+            self.successorNodeCandidates.insert(self.firstSuccessorNode, at: self.successorNodeCandidates.endIndex)
+            self.successorNodeCandidates.remove(at: 0)
+//            self.successorNodeCandidates.insert(self.secondSuccessorNode, at: 0)
+//            self.successorNodeCandidates.remove(at: 2)
+            LogEssential()
+        }
+        LogEssential(self.successorNodeCandidates)
+    }
 
     /*
      Store Finger Table to Device's Storage.
@@ -89,7 +137,21 @@ public class Finger: Equatable {
     public func storeUp(index: Int) {
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
-            let jsonData: Data = """
+            
+//            let jsonData: Data = """
+//            {
+//              "index": \(index),
+//              "dhtAddressAsHexString": {
+//                "start": "\(self.start.dhtAddressAsHexString)",
+//                "interval": [
+//                    "\(self.interval[0].dhtAddressAsHexString)",
+//                    "\(self.interval[1].dhtAddressAsHexString)"
+//                ],
+//                "node": "\(self.node?.dhtAddressAsHexString ?? "")"
+//              }
+//            },\n
+//            """.utf8DecodedData!
+            var jsonData: Data = """
             {
               "index": \(index),
               "dhtAddressAsHexString": {
@@ -98,15 +160,34 @@ public class Finger: Equatable {
                     "\(self.interval[0].dhtAddressAsHexString)",
                     "\(self.interval[1].dhtAddressAsHexString)"
                 ],
-                "node": "\(self.node?.dhtAddressAsHexString ?? "")"
+                "node": [
+            """.utf8DecodedData!
+
+            jsonData += self.successorNodeCandidates.enumerated().reduce("") {
+                var addCharacter: String = ""
+                if $1.offset != 0 {
+                    addCharacter += ","
+                }
+                addCharacter += """
+                    "\($1.element?.dhtAddressAsHexString ?? "")"
+                """
+                return $0 + addCharacter
+            }.utf8DecodedData!
+            
+//            jsonData += """
+//              }
+//            },\n
+//            """.utf8DecodedData!
+            jsonData += """
+                ]
               }
             },\n
             """.utf8DecodedData!
-            
-//            Log("\(jsonData.utf8String ?? "")")
+
+            Log("\(jsonData.utf8String ?? "")")
             try jsonData.append(to: url)
         } catch {
-            Log("Save Json Error \(error)")
+            LogEssential("Save Json Error \(error)")
         }
     }
     public static func storePredecessor(overlayNetworkAddress: OverlayNetworkAddressAsHexString) {

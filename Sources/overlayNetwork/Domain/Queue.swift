@@ -43,6 +43,8 @@ open class Job {
         case local = "LO"       //SEND the Job oneself in local.
         case delegate = "DE"    //SEND the Job by Socket.
         case delegated = "DD"   //RECEIVED the Job by Socket.
+        
+        case signaling = "SI"   //SEND the Job to Signaling Server by Socket.
     }
     
     var result: String?
@@ -56,6 +58,7 @@ open class Job {
     var nextJobToken: String?
     var previousJobToken: String?
 
+//    public init(command: CommandProtocol, operand: String, from fromOverlayNetworkAddress: OverlayNetworkAddressAsHexString, to toOverlayNetworkAddress: OverlayNetworkAddressAsHexString, type: Type, token: String? = nil, previousJobToken: String? = nil) {
     public init(command: CommandProtocol, operand: String, from fromOverlayNetworkAddress: OverlayNetworkAddressAsHexString, to toOverlayNetworkAddress: OverlayNetworkAddressAsHexString, type: Type, token: String? = nil, previousJobToken: String? = nil) {
         Log(token)
         self.time = Time.utcTimeString  //will update at setting token.
@@ -95,7 +98,11 @@ open class Queue {
 //            Log("\(aJob.status)")
 //        }
     }
-    
+    open func enQueueAsFirst(job: Job) {
+        Log()
+        self.queues.insert(job, at: 0)
+    }
+
     /*
      If the Job Status is .succeeded, dequeued queue.
      return:

@@ -102,7 +102,7 @@ public extension CommandProtocol {
         let commandInstance: CommandProtocol? = Command(rawValue: self.rawValue)
         if commandInstance == nil {
             //blocks command, appendix with blocks
-            Log("\(node.premiumCommand?.command(self.rawValue).rawValue) operands: \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) To: \(overlayNetworkAddress)")
+            Log("\(String(describing: node.premiumCommand?.command(self.rawValue).rawValue)) operands: \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) To: \(overlayNetworkAddress)")
         } else {
             //overlay network command
             Log("\(self.rawValue) operands: \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) To: \(overlayNetworkAddress)")
@@ -116,11 +116,36 @@ public extension CommandProtocol {
             node.enQueue(socket: job)
         }
     }
+    func sendForException(node: any NodeProtocol, to overlayNetworkAddress: OverlayNetworkAddressAsHexString, operands: [String?], previousToken: String? = nil, callback: (String) -> Void) -> Void {
+        LogEssential("\(self.rawValue) to \(overlayNetworkAddress)")
+        LogEssential(operands)
+        //Enqueue the Command
+        let operand = operandUnification(operands: operands)
+        let job = Job(command: self, operand: operand, from: node.dhtAddressAsHexString, to: overlayNetworkAddress, type: .delegate, token: nil, previousJobToken: previousToken)
+//        node.enQueue(job: job)
+        #if DEBUG
+        let commandInstance: CommandProtocol? = Command(rawValue: self.rawValue)
+        if commandInstance == nil {
+            //blocks command, appendix with blocks
+            Log("\(String(describing: node.premiumCommand?.command(self.rawValue).rawValue)) operands: \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) To: \(overlayNetworkAddress)")
+        } else {
+            //overlay network command
+            Log("\(self.rawValue) operands: \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) To: \(overlayNetworkAddress)")
+        }
+        #endif
+        if overlayNetworkAddress.equal(node.dhtAddressAsHexString) {
+            Log("Switch to Loopback.")
+            let job = Job(command: self, operand: operand, from: node.dhtAddressAsHexString, to: overlayNetworkAddress, type: .local, token: nil, previousJobToken: previousToken)
+            node.addQueueAsFirst(socket: job)
+        } else {
+            node.addQueueAsFirst(socket: job)
+        }
+    }
 
     //run in Local
     func run(node: any NodeProtocol, operands: [String?], previousToken: String? = nil, callback: (String) -> Void) -> Void {
-        Log(self.rawValue)
-        Log(operands)
+        LogEssential(self.rawValue)
+        LogEssential(operands)
         //Enqueue the Command
         let operand = operandUnification(operands: operands)
         let job = Job(command: self, operand: operand, from: node.dhtAddressAsHexString, to: node.dhtAddressAsHexString, type: .local, token: nil, previousJobToken: previousToken)
@@ -132,7 +157,21 @@ public extension CommandProtocol {
         Log("\(self.rawValue) \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) to: \(node.dhtAddressAsHexString)")
         node.printSocketQueue()
     }
-    
+    func runForException(node: any NodeProtocol, operands: [String?], previousToken: String? = nil, callback: (String) -> Void) -> Void {
+        LogEssential(self.rawValue)
+        LogEssential(operands)
+        //Enqueue the Command
+        let operand = operandUnification(operands: operands)
+        let job = Job(command: self, operand: operand, from: node.dhtAddressAsHexString, to: node.dhtAddressAsHexString, type: .local, token: nil, previousJobToken: previousToken)
+        Log(job.token)
+//        node.enQueue(job: job)
+        node.addQueueAsFirst(socket: job)
+        Log()
+        node.printQueue()
+        Log("\(self.rawValue) \(operands) token: \(job.token) previousToken: \(String(describing: previousToken)) to: \(node.dhtAddressAsHexString)")
+        node.printSocketQueue()
+    }
+
     func operandUnification(operands: [String?]) -> String {
         let unifiedOperand = operands.enumerated().reduce("") {
             if $1.offset == operands.count - 1 {
@@ -222,7 +261,12 @@ public enum Command: String, CommandProtocol {
     case updateSuccessorsPredecessorReply = "US_"
     case updatePredecessorsSuccessor = "UP"
     case updatePredecessorsSuccessorReply = "UP_"
-    
+
+//Move to SignalingCommand.
+//    //Chord Exception
+//    case exceptionUntranslate = "XT"
+//    case exceptionUntranslateReply = "XT_"
+
     //Resource
     case fetchResource = "FR"
     case fetchResourceReply = "FR_"
@@ -277,7 +321,16 @@ public enum Command: String, CommandProtocol {
             return Command.updatePredecessorsSuccessor
         case "UP_":
             return Command.updatePredecessorsSuccessorReply
-            
+
+//Move to SignalingCommand.
+//            /*
+//             Exception
+//             */
+//        case "XT":
+//            return Command.exceptionUntranslate
+//        case "XT_":
+//            return Command.exceptionUntranslateReply
+
             /*
              Resource
              */
@@ -339,6 +392,15 @@ public enum Command: String, CommandProtocol {
         case updatePredecessorsSuccessorReply:
             return "UP_"
             
+//Move to SignalingCommand.
+//            /*
+//             Exception
+//             */
+//        case exceptionUntranslate:
+//            return "XT"
+//        case exceptionUntranslateReply:
+//            return "XT_"
+
             //Resource
         case fetchResource:
             return "FR"
@@ -485,7 +547,7 @@ public enum Command: String, CommandProtocol {
             let doneAllEntry = node.initFingerTable(i: node.fingers.count, babysitterNode: babysitterNode, token: token)
             Log(doneAllEntry)
             if let doneAllEntry = doneAllEntry, doneAllEntry == "completed" {
-                Log("Done All IF.")
+                LogEssential("Done All IF.")
                 node.doneAllFingerTableEntry = true
                 
                 /*
@@ -711,7 +773,8 @@ public enum Command: String, CommandProtocol {
                     Log()
                 }
                 
-                node.fingers[fingerTableIndex].node = successorNode
+//                node.fingers[fingerTableIndex].node = successorNode
+                node.fingers[fingerTableIndex].addSuccessorNodeAsFirstCandidates(node: successorNode)
                 node.triggerStoreFingerTable = true
                 return operandUnification(operands: [String(fingerTableIndex), successorNode.dhtAddressAsHexString.toString])
             }
@@ -933,6 +996,47 @@ public enum Command: String, CommandProtocol {
             /* Reply from Successor Node At Init Finger Table */
             LogEssential()
             return nil
+            //↓ Move to SignalingCommand.
+//        case .exceptionUntranslate :
+//            /*
+//             (baby sitter node)exceptionUntranslate (XT) 受信　←(child node)から
+//             ↓
+//             (baby sitter node)untranslated overlaynetworkAddressをtranslateして確認する
+//             */
+//            LogEssential(operandArray[0])    //0: dht address
+//            let overlayNetworkAddress = operandArray[0]
+//            LogEssential("overlayNetworkAddress \(overlayNetworkAddress)")
+//            if node.fingersHave(overlayNetworkAddress: overlayNetworkAddress) {
+//                //一致するエントリーを見つけた
+//                //translateする（command queueingする）
+//                if let ipAndNode = Node(dhtAddressAsHexString: overlayNetworkAddress) {
+//                    LogEssential()
+//                    //Send translate SignalingCommand for confirmation it.
+//                    Mode.SignalingCommand.translateIntentional.send(node: node, to: String.SignalingServerMockAddress, operands: [ipAndNode.dhtAddressAsHexString.toString], previousToken: token) { string in
+//                        Log(string)
+//                    }
+//                }
+//            } else {
+//                LogEssential("overlayNetworkAddress \(overlayNetworkAddress) illegal")
+//                //一致しない（overlayNetworkAddressが正しくない)
+//                //何もしない
+//            }
+//            return nil
+//        case .exceptionUntranslateReply :
+//            /*
+//             Operands
+//             */
+////            LogEssential(operandArray[0])    //0: publicip
+////            LogEssential(operandArray[1])    //1: publicport
+////            LogEssential(operandArray[2])    //2: privateip
+////            LogEssential(operandArray[3])    //3: privateport
+////            LogEssential(operandArray[4])    //4: node_performance
+////            LogEssential(operandArray[5])    //5: overlayNetworkAddress
+////            LogEssential(operandArray[6])    //6: token
+//            LogEssential(operandArray[0])    //0: overlayNetworkAddress
+//
+//            let fixedOverlayNetworkAddress = operandArray[0]
+//            return fixedOverlayNetworkAddress
         default:
             LogEssential()
             return ""

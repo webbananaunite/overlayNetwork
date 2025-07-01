@@ -11,6 +11,9 @@ public protocol OverlayNetworkAddressAsHexString {
     static var OverlayNetworkAddressAsHexStringNull: OverlayNetworkAddressAsHexString {
         get
     }
+    static var SignalingServerMockAddress: OverlayNetworkAddressAsHexString {
+        get
+    }
     static var dhtAddressAsHexStringLength: Int {
         get
     }
@@ -26,6 +29,9 @@ public protocol OverlayNetworkAddressAsHexString {
 
 extension String : OverlayNetworkAddressAsHexString {
     public static var OverlayNetworkAddressAsHexStringNull: OverlayNetworkAddressAsHexString = "" as OverlayNetworkAddressAsHexString
+//    public static var SignalingServerMockAddress = OverlayNetworkAddressAsHexStringNull
+    public static var SignalingServerMockAddress: OverlayNetworkAddressAsHexString = String(repeating: "0", count: 128)
+    
     public static var dhtAddressAsHexStringLength: Int = 128
     public var toString: String {
         self

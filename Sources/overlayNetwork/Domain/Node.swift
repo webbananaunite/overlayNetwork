@@ -45,6 +45,7 @@ public protocol NodeProtocol: Equatable {
         get set
     }
     func enQueue(socket job: Job)
+    func addQueueAsFirst(socket job: Job)
     func deQueue(for queueType: Queue.QueueType) -> Job?
 
     /*
@@ -107,6 +108,13 @@ public protocol NodeProtocol: Equatable {
     //periodically refresh finger table entries.
     func fixFingers(token: String)
     
+    //Chord Exception
+    func fingersHave(overlayNetworkAddress: OverlayNetworkAddressAsHexString) -> Bool
+    func translateIntentionalAck() -> Void
+    func translateIntentionalNak(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString?
+    
+    func exceptUnTranslateReply(fixedOverlayNetworkAddress: OverlayNetworkAddressAsHexString, originalOverlayNetworkAddress: OverlayNetworkAddressAsHexString, originalToken: String) -> String?
+
     /*
      Functions for Debugging
      */
@@ -294,10 +302,12 @@ open class Node: NodeProtocol {
     }
     public var successor: Node? {           //next node in id(hash) cirlcle, == finger[0].node
         get {
+//            LogEssential(fingers)
             if fingers.isEmpty {
                 return nil
             } else {
-                return fingers[0].node
+//                return fingers[0].node
+                return fingers[0].successorNodeCandidates[0]
             }
         }
         set {
@@ -305,13 +315,18 @@ open class Node: NodeProtocol {
             if fingers.isEmpty {
                 let intervalMin = self.binaryAddress.addAsData(exponent: UInt(0)).moduloAsData(exponentOf2: Data.ModuloAsExponentOf2)
                 let intervalMax = self.binaryAddress.addAsData(exponent: UInt(0+1)).moduloAsData(exponentOf2: Data.ModuloAsExponentOf2)
-                if let finger = Finger(start: Node(binaryAddress: intervalMin), interval: [Node(binaryAddress: intervalMin), Node(binaryAddress: intervalMax)], node: nil) {Log()
+                if let finger = Finger(start: Node(binaryAddress: intervalMin), interval: [Node(binaryAddress: intervalMin), Node(binaryAddress: intervalMax)], nodes: []) {Log()
                     fingers.append(finger)
-                    fingers[0].node = newValue
+                    
+//                    fingers[0].node = newValue
+                    fingers[0].addSuccessorNodeAsFirstCandidates(node: newValue)
+                    
                     self.triggerStoreFingerTable = true
                 }
             } else {
-                fingers[0].node = newValue
+//                fingers[0].node = newValue
+                fingers[0].addSuccessorNodeAsFirstCandidates(node: newValue)
+                
                 self.triggerStoreFingerTable = true
             }
         }
@@ -319,7 +334,7 @@ open class Node: NodeProtocol {
     //previous node in id(hash) cirlcle
     open var predecessor: Node? {
         didSet {
-            Log("predecessor: \(predecessor?.dhtAddressAsHexString.toString)")
+            Log("predecessor: \(String(describing: predecessor?.dhtAddressAsHexString.toString))")
         }
     }
     
@@ -333,6 +348,10 @@ open class Node: NodeProtocol {
     open func enQueue(socket job: Job) {
         Log(job.command)
         self.socketQueues.enQueue(job: job)
+    }
+    open func addQueueAsFirst(socket job: Job) {
+        Log(job.command)
+        self.socketQueues.enQueueAsFirst(job: job)
     }
     /*
      Dequeue First Element.
@@ -544,14 +563,20 @@ open class Node: NodeProtocol {
     }
     open func printFingerTableEssential() {
 #if true
-        print("Successor: \(self.successor?.dhtAddressAsHexString.toString) Predecessor: \(self.predecessor?.dhtAddressAsHexString.toString)")
+        print("Successor: \(String(describing: self.successor?.dhtAddressAsHexString.toString)) Predecessor: \(String(describing: self.predecessor?.dhtAddressAsHexString.toString))")
         print("Finger Table \(ip) own:\(dhtAddressAsHexString)\n")
-        print("[start]     [interval]     [node]\n")
+        print("[start]     [interval]     [nodes]\n")
         var i: Int = 0
         fingers.forEach { finger in
             print("row \(i)")
             print("own+2^\(i) to own+2^\(i+1))")
-            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)] [\(finger.node?.dhtAddressAsHexString.toString)]\n")
+            
+//            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)] [\(finger.node?.dhtAddressAsHexString.toString)]\n")
+            print("[\(finger.start.dhtAddressAsHexString)] [\(finger.interval[0].dhtAddressAsHexString) - \(finger.interval[1].dhtAddressAsHexString)]")
+            print(finger.successorNodeCandidates.enumerated().reduce("") {
+                return $0 + ($1.offset == 0 ? "\($1.element?.dhtAddressAsHexString.toString ?? "")" : ", \($1.element?.dhtAddressAsHexString.toString ?? "")")
+            })
+            
             print("----------\n")
             i += 1
         }
@@ -607,7 +632,7 @@ open class Node: NodeProtocol {
         }
         Log(jsonData[0])  //["predecessor": 192.168.0.3:8334]
         Log(jsonData[1])  //[ {Object},... ]
-        Log(jsonData.count)
+        LogEssential(jsonData.count)
         return true
     }
     /*
@@ -639,11 +664,18 @@ open class Node: NodeProtocol {
                     Log(predecessorNode.dhtAddressAsHexString)
                     self.predecessor = predecessorNode
                 }
-            } else if let dhtAddressAsHexString = rows["dhtAddressAsHexString"] as? [String: Any], let start = dhtAddressAsHexString["start"] as? String, let interval = dhtAddressAsHexString["interval"] as? [String], let node = dhtAddressAsHexString["node"] as? String {
-                
+//            } else if let dhtAddressAsHexString = rows["dhtAddressAsHexString"] as? [String: Any], let start = dhtAddressAsHexString["start"] as? String, let interval = dhtAddressAsHexString["interval"] as? [String], let node = dhtAddressAsHexString["node"] as? String {
+            } else if let dhtAddressAsHexString = rows["dhtAddressAsHexString"] as? [String: Any], let start = dhtAddressAsHexString["start"] as? String, let interval = dhtAddressAsHexString["interval"] as? [String], let nodes = dhtAddressAsHexString["node"] as? [String] {
                 Log()
                 if let start = Node(dhtAddressAsHexString: start), let intervalStart = Node(dhtAddressAsHexString: interval[0]), let intervalEnd = Node(dhtAddressAsHexString: interval[1]) {
-                    if let finger = Finger(start: start, interval: [intervalStart, intervalEnd], node: Node(dhtAddressAsHexString: node)) {
+                    let nodesInstances = nodes.map {
+                        return Node(dhtAddressAsHexString: $0)
+                    }
+                    
+//                    if let finger = Finger(start: start, interval: [intervalStart, intervalEnd], node: Node(dhtAddressAsHexString: node)) {
+//                        fingers.append(finger)
+//                    }
+                    if let finger = Finger(start: start, interval: [intervalStart, intervalEnd], nodes: nodesInstances) {
                         fingers.append(finger)
                     }
                 }
@@ -817,6 +849,7 @@ open class Node: NodeProtocol {
     open func received(from sentOverlayNetworkAddress: String, data: String) {
         LogEssential("from: \(sentOverlayNetworkAddress) data: \(data)")
         guard let (command, operand, token) = takeCommandAndData(data: data) else {
+            LogEssential()
             return
         }
         /*
@@ -826,18 +859,34 @@ open class Node: NodeProtocol {
          
          Apply Dependency Injeciton for Premium Command
          */
-        Log(command)
+        LogEssential(command)
+        /*
+         whether Detected OverlayNetwork Command
+         */
         var commandInstance: CommandProtocol? = Command(rawValue: command)
-        Log(commandInstance == nil ? "received premium Command" : "received overlayNetwork Command")
+        LogEssential(commandInstance == nil ? "received premium Command / Signaling Command" : "received overlayNetwork Command")
         if commandInstance == nil {
             Log()
             /*
              if Nothing in overlayNetwork Command,
              Use Appendix Premium Command.
              */
+            /*
+             whether Detected Premium Command
+             */
             commandInstance = self.premiumCommand?.command(command)
-            Log(commandInstance)
+            Log(commandInstance as Any)
         }
+        LogEssential(commandInstance?.rawValue == Command.other.rawValue ? "received Signaling Command" : "")
+        if commandInstance == nil || commandInstance?.rawValue == Command.other.rawValue {
+            Log()
+            /*
+             whether Detected Signaling Command
+             */
+            commandInstance = Mode.SignalingCommand(rawValue: command)
+        }
+        LogEssential(commandInstance as Any)
+
         var nodeProtocolSelf: any NodeProtocol = self
         let nextOperand = commandInstance?.receive(node: &nodeProtocolSelf, operands: operand, from: sentOverlayNetworkAddress, token: token)
         
@@ -853,8 +902,9 @@ open class Node: NodeProtocol {
          if self is 'Normal command'
          Send reply command to sender.
          */
-        Log(command)
-        if (Command(rawValue: command) ?? Command.other).isReply() {
+        LogEssential(command)
+//        if (Command(rawValue: command) ?? Command.other).isReply() {
+        if let commandInstance = commandInstance, commandInstance.isReply() {
             Log(command)
             /*
              Check having previous job
@@ -899,7 +949,10 @@ open class Node: NodeProtocol {
                  Use Appendix Premium Command.
                  */
                 commandInstance = self.premiumCommand?.command(command)
-                Log(commandInstance)
+                if commandInstance == nil || commandInstance?.rawValue == Command.other.rawValue {
+                    commandInstance = Mode.SignalingCommand(rawValue: command)
+                }
+                Log(commandInstance as Any)
             }
             commandInstance?.reply(node: self, to: sentOverlayNetworkAddress, operand: nextOperand, token: token) {
                 a in
@@ -919,7 +972,7 @@ open class Node: NodeProtocol {
         //check terminator
         Log(data)
         let datas = data.components(separatedBy: Socket.communicationTerminatorChar)
-        Log(datas)
+        LogEssential(datas)
         guard datas[0].count >= 2 else {
             Log("Bad Data Terminator. \(datas[0].count)")
             return nil
@@ -1043,7 +1096,9 @@ open class Node: NodeProtocol {
             }
         }
         Log(matchedFinger?.start.dhtAddressAsHexString)
-        return matchedFinger?.node
+        
+//        return matchedFinger?.node
+        return matchedFinger?.firstSuccessorNode
     }
     
     public let inChargingOfResources = [
@@ -1224,7 +1279,9 @@ open class Node: NodeProtocol {
     //使用していない
     open func appendNodeToFingerTable(node: Node, token: String) -> Void {
         Log()
-        fingers[0].node = node
+//        fingers[0].node = node
+        fingers[0].addSuccessorNodeAsFirstCandidates(node: node)
+
         self.triggerStoreFingerTable = true
     }
     
@@ -1265,7 +1322,7 @@ open class Node: NodeProtocol {
             let intervalMax = self.binaryAddress.addAsData(exponent: UInt(i+1)).moduloAsData(exponentOf2: Data.ModuloAsExponentOf2)
             Dump(intervalMin)
             Dump(intervalMax)
-            if let finger = Finger(start: Node(binaryAddress: intervalMin), interval: [Node(binaryAddress: intervalMin), Node(binaryAddress: intervalMax)], node: self) {
+            if let finger = Finger(start: Node(binaryAddress: intervalMin), interval: [Node(binaryAddress: intervalMin), Node(binaryAddress: intervalMax)], nodes: [self]) {
                 fingers.append(finger)
             }
         }
@@ -1315,7 +1372,7 @@ open class Node: NodeProtocol {
         Log(intervalMin.hexAsData())
         Log(intervalMax.hexAsData())
 
-        if let finger = Finger(start: Node(binaryAddress: intervalMin), interval: [Node(binaryAddress: intervalMin), Node(binaryAddress: intervalMax)], node: nil) {Log()
+        if let finger = Finger(start: Node(binaryAddress: intervalMin), interval: [Node(binaryAddress: intervalMin), Node(binaryAddress: intervalMax)], nodes: nil) {Log()
             fingers.append(finger)
         }
         
@@ -1334,8 +1391,8 @@ open class Node: NodeProtocol {
          */
         var startBetweenSelfToPreIndexSuccessor: Bool = false
         if i > 0 {
-            Log(fingers[i-1].node?.dhtAddressAsHexString ?? "fingers.node(Successor) is nil.")
-            if let node = fingers[i-1].node {
+            Log(fingers[i-1].firstSuccessorNode?.dhtAddressAsHexString ?? "fingers.node(Successor) is nil.")
+            if let node = fingers[i-1].firstSuccessorNode {
                 Log("Have Successor in Pre Entry: \(i)")
                 /*
                  If ONLY have got Successor{node in pre finger table entry}
@@ -1365,9 +1422,11 @@ open class Node: NodeProtocol {
                 then Set finger[i-1].node to finger[i].node
              */
             Log("start ∈ [self, finger[i-1].node) then Set Node to Finger Entry. \(i) ")
-            Log(fingers[i].node?.getIp)
-            Log(fingers[i-1].node?.getIp)
-            fingers[i].node = fingers[i-1].node
+            Log(fingers[i].firstSuccessorNode?.getIp as Any)
+            Log(fingers[i-1].firstSuccessorNode?.getIp as Any)
+//            fingers[i].node = fingers[i-1].node
+            fingers[i].successorNodeCandidates = fingers[i-1].successorNodeCandidates
+            
             Log(i)
             if i >= Node.FINGER_TABLE_INDEX_MAX - 1 {
                 Log()
@@ -1397,7 +1456,8 @@ open class Node: NodeProtocol {
          */
         if i >= Node.FINGER_TABLE_INDEX_MAX - 1 {
             Log()
-            Log(self.successor?.predecessor?.dhtAddressAsHexString ?? "nil")
+            self.predecessor = self.successor   //it's temporary setting.
+            Log(self.successor?.dhtAddressAsHexString ?? "nil")
             /*
              Have Done All.
              */
@@ -1493,13 +1553,13 @@ open class Node: NodeProtocol {
         var i = self.fingers.count - 1
         for finger in self.fingers.reversed() {
             Log("closestPrecedingFinger - inRange(intervalType: .exclude)")
-            Log("about: \(finger.node?.binaryAddress.hexAsData()))")
+            Log("about: \(finger.firstSuccessorNode?.binaryAddress.hexAsData() ?? "")")
             Log("from: \(self.binaryAddress.hexAsData())")
             Log("to: \(address.binaryAddress.hexAsData())")
             /*
              whether $0.node belongs between self and address.
              */
-            if let node = finger.node {
+            if let node = finger.firstSuccessorNode {
                 if self.have(node, between: address, intervalType: .exclude) {
                     matchedFinger = finger
                     break
@@ -1508,7 +1568,7 @@ open class Node: NodeProtocol {
             i -= 1
         }
         Log(i)
-        Log(matchedFinger?.node?.dhtAddressAsHexString ?? "Missed matching")
+        Log(matchedFinger?.firstSuccessorNode?.dhtAddressAsHexString ?? "Missed matching")
 
         /*
          Query successor to matchedFinger?.node
@@ -1516,7 +1576,7 @@ open class Node: NodeProtocol {
              (a, b] は {x : a < x ≦ b} を表す
          
          */
-        if let closestPrecedingNode = matchedFinger?.node {
+        if let closestPrecedingNode = matchedFinger?.firstSuccessorNode {
             /*
              Found Closest Preceding node in self's finger table.
              */
@@ -1729,7 +1789,7 @@ open class Node: NodeProtocol {
         Log("updateFingerTable have between .includeExclude")
         Log("about: \(node.binaryAddress.hexAsData()))")
         Log("from: \(fingers[i].interval[0].binaryAddress.hexAsData())")
-        Log("to: \(fingers[i].node?.binaryAddress.hexAsData())")
+        Log("to: \(fingers[i].firstSuccessorNode?.binaryAddress.hexAsData() ?? "")")
         
         /*
          if s ∈ [n, finger[i].node)     //IntervalType: .includeExclude
@@ -1742,11 +1802,10 @@ open class Node: NodeProtocol {
          */
         let intervalStartNode = fingers[i].interval[0]
         Log("intervalStartNode: \(intervalStartNode.binaryAddress.hexAsData())")
-        if intervalStartNode.have(node, between: fingers[i].node) {
-            
+        if intervalStartNode.have(node, between: fingers[i].firstSuccessorNode) {
             Log("have \(i)")
             if i == 0 {
-                Log("\(self.getIp).successor \(node.getIp)")
+                Log("\(String(describing: self.getIp)).successor \(String(describing: node.getIp))")
                 Log()
             }
             /*
@@ -1757,7 +1816,7 @@ open class Node: NodeProtocol {
                 Log("Trying to Update finger table by own node.")
             } else {
                 Log()
-                fingers[i].node = node
+                fingers[i].addSuccessorNodeAsFirstCandidates(node: node)
                 self.triggerStoreFingerTable = true
             }
             /*
@@ -1854,7 +1913,7 @@ open class Node: NodeProtocol {
     public func fixFingers(token: String) {
         Log()
         let i = Int.random(in: 0..<self.fingers.count)
-        if let currentSuccessor = self.fingers[i].node {
+        if let currentSuccessor = self.fingers[i].firstSuccessorNode {
             Log()
             Command.findSuccessor.send(node: self, to: currentSuccessor.dhtAddressAsHexString, operands: [String(i), fingers[i].start.dhtAddressAsHexString.toString], previousToken: token) {
                 a in
@@ -1864,8 +1923,62 @@ open class Node: NodeProtocol {
     }
     public func replyFixFingers(i: Int, newSuccessor: Node, token: String) {
         Log()
-        self.fingers[i].node = newSuccessor
+        self.fingers[i].addSuccessorNodeAsFirstCandidates(node: newSuccessor)
         self.triggerStoreFingerTable = true
     }
+    public func fingersHave(overlayNetworkAddress: OverlayNetworkAddressAsHexString) -> Bool {
+        Log()
+        //一致するエントリーを見つける
+        var isThere = false
+        fingers.forEach { finger in
+            if let node = finger.firstSuccessorNode, node.dhtAddressAsHexString.equal(overlayNetworkAddress) {
+                //一致するエントリーを見つけたら
+                //translateする
+                isThere = true
+            }
+            //一致しなければ（overlayNetworkAddressが正しくない）　→exceptOverlayNetworkAddressを返す
+        }
+        return isThere
+    }
+    public func translateIntentionalAck() -> Void {
+        Log()
+    }
+    public func translateIntentionalNak(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString? {
+        Log()
+        var updatedSuccessorNodeAddress: OverlayNetworkAddressAsHexString?
+        //nodeがもつfinger tableのエントリーを更新する手続きを行う
+        self.fingers.enumerated().forEach {
+            if let firstSuccessorNodeDhtAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress), $0.element.isThereMultipleCandidates {
+                //successor nodesに他にエントリーがあればそのnodeをトップに入れ替える
+                //bootNodeのfingerTableのsuccesserには必ずbootNodeがエントリーにある
+                $0.element.swapFirstSuccessor(dhtAddressAsHexString: dhtAddressAsHexString)
+                updatedSuccessorNodeAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString
+            }
+        }
+        return updatedSuccessorNodeAddress
+    }
+
+    public func exceptUnTranslateReply(fixedOverlayNetworkAddress: OverlayNetworkAddressAsHexString, originalOverlayNetworkAddress: OverlayNetworkAddressAsHexString, originalToken: String) -> String? {
+        Log()
+        /*
+         untranslate exception が発生したcommandをoriginalTokenで検索し取得し
+         オリジナルcommand_に渡すoperandをreturnする
+         */
+        /*
+         オリジナルcommandにReplyする
+         Node#自動化しているものを使う　←queueにコマンドを入れて
+         */
+        if let previousJob = self.fetchJob(token: originalToken), let originalOperands = previousJob.result {
+            Log()
+            guard !fixedOverlayNetworkAddress.equal(originalOverlayNetworkAddress) else {
+                return originalOperands
+            }
+            let fixedOperands = originalOperands.replacingOccurrences(of: originalOverlayNetworkAddress.toString, with: fixedOverlayNetworkAddress.toString)
+            LogEssential("originalOperands:\(originalOperands) fixedOperands:\(fixedOperands)")
+            return fixedOperands
+        }
+        return nil
+    }
+
     /*inprementation of Chord*/
 }

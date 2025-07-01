@@ -101,20 +101,302 @@ x     return signaling phase
      cA receive command
      */
     
+//    case exception = 5
+
     public enum Select {
         case send
         case receive
     }
-    public enum SignalingCommand: String {
+//    public enum SignalingCommand: String {
+    public enum SignalingCommand: String, CommandProtocol {
+        public func command(_ command: String) -> any CommandProtocol {
+            switch command {
+                /*
+                 Signaling Command
+                 */
+            case "registerMe":
+                return SignalingCommand.translate
+            case "okyours":
+                return SignalingCommand.okyours
+            case "okregisterMe":
+                return SignalingCommand.okregisterMe
+            case "registerMeAck":
+                return SignalingCommand.registerMeAck
+
+            case "translate":
+                return SignalingCommand.translate
+            case "translateAck":
+                return SignalingCommand.translateAck
+            case "translateNak":
+                return SignalingCommand.translateNak
+            case "exchangeToken":
+                return SignalingCommand.exchangeToken
+
+            //Exceptions
+            case "exceptUnTranslate":
+                return SignalingCommand.exceptUnTranslate
+            case "exceptUnTranslate_":
+                return SignalingCommand.exceptUnTranslateReply
+            case "translateIntentional":
+                return SignalingCommand.translateIntentional
+            case "translateIntentionalAck_":
+                return SignalingCommand.translateIntentionalAck
+            case "translateIntentionalNak_":
+                return SignalingCommand.translateIntentionalNak
+
+            default:
+                return Command.other
+            }
+        }
+        
+        public func receive(node: inout any NodeProtocol, operands: String, from fromNodeOverlayNetworkAddress: any OverlayNetworkAddressAsHexString, token: String) -> String? {
+            LogEssential("\(self.rawValue) \(operands) \(token) From: \(fromNodeOverlayNetworkAddress)")
+            let operandArray = operandTakeApart(operands: operands)
+            Log(operandArray)
+            
+            var doneAllFollowingJobs = true /* Use Only Reply Command */
+            node.doneAllFingerTableEntry = false
+            if self.isReply(), let _ = Command(rawValue: self.sendCommand) { Log()
+                //Mark dequeue flag on it's status.
+                let (_, _) = node.deQueueWithType(token: token, type: [.local, .delegate])
+                let (updatedJob, _) = node.setJobResult(token: token, type: [.local, .delegate], result: operands) // **job result is overwritten following code possibly.
+                
+                /*
+                 Detect done ALL following(Chained) jobs.
+                 */
+                if let chainedJobs = node.fetchFollowingJobs(token: token) {
+                    Log()
+                    let runningJob = chainedJobs.filter {
+                        $0.status != .dequeued
+                    }.first
+                    doneAllFollowingJobs = runningJob == nil ? true : false
+                }
+                Log(node.doneAllFingerTableEntry)
+                Log(doneAllFollowingJobs)
+                node.printQueue(job: updatedJob)
+            } else { Log()
+                /*
+                 New Job
+                 
+                 Delegated by a node(other or own).
+                 Token use received token, the job token is not generated anew.
+                 */
+                node.enQueue(job: Job(command: self, operand: operands, from: fromNodeOverlayNetworkAddress, to: node.dhtAddressAsHexString, type: .delegated, token: token))
+                node.printQueue()
+            }
+            Log()
+            
+            /*
+             Communicate with Signaling server.
+             */
+            switch self {
+                /*
+                 Initial Registration to SignalingServer.
+                 */
+            case .registerMe :      //MARK: registerMe →SignalingServer
+                return nil
+            case .okyours :         //MARK: okyours ←SignalingServer
+                return nil
+            case .okregisterMe :    //MARK: okregisterMe →SignalingServer
+                return nil
+            case .registerMeAck :   //MARK: registerMeAck ←SignalingServer
+                return nil
+
+                /*
+                 Handshake with PeerNode.
+                 */
+            case .translate :       //MARK: translate →SignalingServer
+                return nil
+            case .translateAck :    //MARK: translateAck/translateNak ←SignalingServer
+                return nil
+            case .translateNak :
+                /*
+                 sendBuff = "translateNak {0}".format(overlayNetworkAddress)
+                 ↓
+                 Send exceptUnTranslate {address length} {overlay network address}
+                 */
+                LogEssential(operandArray[0])    //0: dht address
+                let overlayNetworkAddress = operandArray[0]
+                if let babysitterNode = node.babysitterNode {
+                    Mode.SignalingCommand.exceptUnTranslate.sendForException(node: node, to: babysitterNode.dhtAddressAsHexString, operands: [String(overlayNetworkAddress.count), overlayNetworkAddress], previousToken: token) { string in
+                        Log(string)
+                    }
+                } else {
+                    Mode.SignalingCommand.exceptUnTranslate.runForException(node: node, operands: [String(overlayNetworkAddress.count), overlayNetworkAddress], previousToken: token) { string in
+                        Log(string)
+                    }
+                }
+                return nil
+            case .exchangeToken :   //MARK: exchangeToken ←→PeerNode
+                return nil
+
+                /*
+                 Exceptions.
+                 */
+            case .exceptUnTranslate :  //MARK: exceptUnTranslate ←PeerNode
+                /*
+                 (baby sitter node)exceptUntranslate受信　←(child node/own node)から
+                 ↓
+                 (baby sitter node)untranslated overlaynetworkAddressをtranslateして確認する
+                 
+                 operands: [String(overlayNetworkAddress.count), overlayNetworkAddress]
+                 */
+                LogEssential(operandArray[0])    //0: dht address length
+                LogEssential(operandArray[1])    //1: dht address
+                let overlayNetworkAddress = operandArray[1]
+                LogEssential("overlayNetworkAddress \(overlayNetworkAddress)")
+                if node.fingersHave(overlayNetworkAddress: overlayNetworkAddress) {
+                    //一致するエントリーを見つけた
+                    //translateする（command queueingする）
+                    if let ipAndNode = Node(dhtAddressAsHexString: overlayNetworkAddress) {
+                        LogEssential()
+                        //Send translate SignalingCommand for confirmation it.
+                        Mode.SignalingCommand.translateIntentional.sendForException(node: node, to: String.SignalingServerMockAddress, operands: [ipAndNode.dhtAddressAsHexString.toString], previousToken: token) { string in
+                            Log(string)
+                        }
+                    }
+                } else {
+                    LogEssential("overlayNetworkAddress \(overlayNetworkAddress) illegal")
+                    //一致しない（overlayNetworkAddressが正しくない)
+                    //何もしない
+                }
+                return nil
+            case .exceptUnTranslateReply :  //MARK: exceptUnTranslateReply →PeerNode
+                LogEssential(operandArray[0])    //0: updatedOverlayNetworkAddress
+                LogEssential(operandArray[1])    //1: originalOverlayNetworkAddress
+                LogEssential(operandArray[2])    //2: original token
+                let fixedOverlayNetworkAddress = operandArray[0]
+                let originalOverlayNetworkAddress = operandArray[1]
+                let originalToken = operandArray[2]
+                return node.exceptUnTranslateReply(fixedOverlayNetworkAddress: fixedOverlayNetworkAddress, originalOverlayNetworkAddress: originalOverlayNetworkAddress, originalToken: originalToken)
+                
+                /*
+                 Any Exception cause Be Confirm Intentionally.
+                 */
+                /*
+                 Commands be Handle in Socket#communication() on Any Node
+                 */
+            case .translateIntentional : //MARK: translateIntentional →SignalingServer
+                return nil
+                /*
+                 Should Handled Commands in here.
+                 */
+            case .translateIntentionalAck : //MARK: translateIntentionalAck
+                /*
+                 exceptUntranslate　←Child Node
+                 ↓
+                 translateIntentional　→Signaling Server
+                 ↓
+                 translateIntentionalAck
+                 ↓
+                 (baby sitter node)exceptUntranslateReplyで同じoverlayNetwork addressを返す
+                 ↓
+                 (child node)オリジナルcommandを再試行する(一時的node unavailableだった？）
+                 */
+                /*
+                 (baby sitter node)exceptUntranslateReplyで同じoverlayNetwork addressを返す
+
+                 
+                 sendBuff = "translateIntentionalAck_ {0} {1} {2} {3} {4} {5} {6}".format(publicip, publicport, privateip, privateport, node_performance, overlayNetworkAddress, token)
+                 */
+                /*
+                 SignalingServerから受け取ったOperands
+                 */
+                LogEssential(operandArray[0])    //0: publicip
+                LogEssential(operandArray[1])    //1: publicport
+                LogEssential(operandArray[2])    //2: privateip
+                LogEssential(operandArray[3])    //3: privateport
+                LogEssential(operandArray[4])    //4: node_performance
+                LogEssential(operandArray[5])    //5: overlayNetworkAddress
+                LogEssential(operandArray[6])    //6: token
+                let nakedOverlayNetworkAddress = operandArray[5]
+                let updatedSuccessorNodeAddress = operandArray[5]
+                let originCommandToken = operandArray[6]
+                return operandUnification(operands: [updatedSuccessorNodeAddress, nakedOverlayNetworkAddress, originCommandToken])
+            case .translateIntentionalNak : //MARK: translateIntentionalNak
+                /*
+                 translateできなければ
+                 ↓
+                 finger tableのnode保存方式を配列に変更する
+                 ↓
+                 2nd候補nodeがあれば
+                 ２ndと１st nodeを入れ替える
+                 ↓
+                 2nd候補nodeがなければ
+                 時計回りに次のfingerエントリーのnode配列の１番目を該当エントリーのnode(successsor)１番目に保存する
+                 ↓
+                 現在のnodeはcandidate nodeの最後尾に保存する
+                 ↓
+                 該当エントリーの新nodeを通知する
+                 
+                 sendBuff = "translateIntentionalNak_ {0} {1}".format(overlayNetworkAddress, token)
+                 */
+                LogEssential(operandArray[0])    //0: nakedOverlayNetworkAddress
+                LogEssential(operandArray[1])    //1: token
+                let nakedOverlayNetworkAddress = operandArray[0]
+                let updatedSuccessorNodeAddress = node.translateIntentionalNak(dhtAddressAsHexString: nakedOverlayNetworkAddress)
+                let originCommandToken = operandArray[1]
+                return operandUnification(operands: [updatedSuccessorNodeAddress?.toString, nakedOverlayNetworkAddress, originCommandToken])
+            }
+        }
+        
+        public static func rawValue(_ command: any CommandProtocol) -> String {
+            switch command {
+                //Initial Registration to SignalingServer.
+            case registerMe :
+                return "registerMe"
+            case okyours :
+                return "okyours"
+            case okregisterMe :
+                return "okregisterMe"
+            case registerMeAck :
+                return "registerMeAck"
+                
+                //Handshake with PeerNode.
+            case translate :
+                return "translate"
+            case translateAck :
+                return "translateAck"
+            case translateNak :
+                return "translateNak"
+            case exchangeToken :
+                return "exchangeToken"
+                
+                //Exceptions
+            case exceptUnTranslate :
+                return "exceptUnTranslate"
+            case exceptUnTranslateReply :
+                return "exceptUnTranslate_"
+            case translateIntentional :
+                return "translateIntentional"
+            case translateIntentionalAck :
+                return "translateIntentionalAck_"
+            case translateIntentionalNak :
+                return "translateIntentionalNak_"
+
+            default :
+                return ""
+            }
+        }
+        
+        //Initial Registration to SignalingServer.
         case registerMe
         case okyours
         case okregisterMe
         case registerMeAck
         
+        //Handshake with PeerNode.
         case translate
         case translateAck
-
+        case translateNak
         case exchangeToken
+        
+        //Exceptions
+        case exceptUnTranslate
+        case exceptUnTranslateReply
+        case translateIntentional
+        case translateIntentionalAck
+        case translateIntentionalNak
     }
     public enum PeerType {
         case signalingServer
@@ -141,7 +423,8 @@ x     return signaling phase
         case .signaling:
             return [
                 ([.send], nil, [.translate], [.signalingServer]),
-                ([.receive], .handshake, [.translateAck], [.signalingServer])
+//                ([.receive], .handshake, [.translateAck], [.signalingServer])
+                ([.receive], .handshake, [.translateAck, .translateNak], [.signalingServer]),
             ]
             
         case .handshake:
@@ -155,11 +438,16 @@ x     return signaling phase
                 ([.send, .receive], .dequeueJob, [.exchangeToken, .translateAck], [.peerNode]),
                 ([.send, .receive], .dequeueJob, [.exchangeToken, .translateAck], [.peerNode])
             ]
-            
+
         case .dequeueJob:
             return [
                 ([.send, .receive], .handshake, [.translateAck], [.signalingServer, .peerNode])    //Receive translateAck command from Other Nodes.
             ]
+            
+//        case .exception:
+//            return [
+//                ([.send], .dequeueJob, [.exceptUnTranslate], [.peerNode])
+//            ]
         }
     }
 }
@@ -205,8 +493,9 @@ open class Socket {
         case `public`
         case `private`
     }
-    var socketHandles: [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]]
-    
+//    var socketHandles: [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]]
+    var socketHandles: [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString, connected: Bool, connectionFailCounter: Int)]]]
+
     var communicationProcess = processPhase()
     var bannedOverlayNetworkAddresses = [String: Bool]()
     
@@ -246,7 +535,8 @@ open class Socket {
     
     public init() {
         self.mode = .registerMeAndIdling
-        self.socketHandles = [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]]()
+//        self.socketHandles = [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]]()
+        self.socketHandles = [Mode.PeerType: [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString, connected: Bool, connectionFailCounter: Int)]]]()
     }
     
     /*
@@ -305,9 +595,14 @@ open class Socket {
      connect
      */
     //MARK: - Open Socket
+//#if os(iOS)
+//    let bootNodeIp = "192.168.0.5"
+//    let bootNodePort = 65500            //A Ephemeral Port on Linux
+//#elseif os(Linux)
     let bootNodeIp = "49.212.211.165"
 //    let bootNodePort = 32789  //occurred connection error.            //A Ephemeral Port on Linux
     let bootNodePort = 65500            //A Ephemeral Port on Linux
+//#endif
     public func openSocket(to destination: (ip: String, port: Int), addressSpace: AddressSpace, source privateAddress: (ip: String, port: Int)?, async: Bool = false) -> (socketHandle: Int32, sourceAddress: (ip: String, port: Int), Bool) {
         Log("from: \(String(describing: privateAddress)) to: \(destination)")
         /*
@@ -544,16 +839,19 @@ open class Socket {
             return node.dhtAddressAsHexString.toString
         }
         var overlayNetworkAddress: String?
+        print(self.socketHandles.count)
+        print(self.socketHandles)
         self.socketHandles.forEach {
-            if $0.key == Mode.PeerType.peerNode {
+//            if $0.key == Mode.PeerType.peerNode {
                 $0.value.values.forEach {
                     $0.values.forEach {
                         if $0.peerAddress.ip == ip {
-                            overlayNetworkAddress = $0.overlayNetworkAddress?.toString
+//                            overlayNetworkAddress = $0.overlayNetworkAddress?.toString
+                            overlayNetworkAddress = $0.overlayNetworkAddress.toString
                         }
                     }
                 }
-            }
+//            }
         }
         return overlayNetworkAddress
     }
@@ -618,7 +916,7 @@ open class Socket {
     }
     public func didTranslate(_ overlayNetworkAddress: OverlayNetworkAddressAsHexString) -> (Int32?, Bool)? {
         Log(overlayNetworkAddress)
-        Log(self.socketHandles)
+        LogEssential(self.socketHandles)
         var socketFd: Int32?
         var connected = false
         self.socketHandles.forEach {    //each peer types
@@ -995,7 +1293,10 @@ open class Socket {
                 return
             }
 
-            self.socketHandles = [.signalingServer: ["": [.public: (.public, socketHandle, signalingServerAddress, nil, connectionSucceeded, 0)]]]
+//            self.socketHandles = [.signalingServer: ["": [.public: (.public, socketHandle, signalingServerAddress, nil, connectionSucceeded, 0)]]]
+//            self.socketHandles = [.signalingServer: ["": [.public: (.public, socketHandle, signalingServerAddress, String.SignalingServerMockAddress, connectionSucceeded, 0)]]]
+            self.socketHandles = [.signalingServer: [String.SignalingServerMockAddress.toString: [.public: (.public, socketHandle, signalingServerAddress, String.SignalingServerMockAddress, connectionSucceeded, 0)]]]
+
             guard let ip = IpaddressV4(sourceAddress.ip) else {
                 Log()
                 return
@@ -1113,7 +1414,8 @@ open class Socket {
                     self.socketHandles[peerType]?.forEach {
                         $0.value.values.forEach {
                             if $0.socketFd == socket {
-                                if let overlayAddress = $0.overlayNetworkAddress, overlayAddress.equal(overlayNetworkAddress) && $0.connected {
+//                                if let overlayAddress = $0.overlayNetworkAddress, overlayAddress.equal(overlayNetworkAddress) && $0.connected {
+                                if $0.overlayNetworkAddress.equal(overlayNetworkAddress) && $0.connected {
                                     theSocket = socket
                                 }
                             }
@@ -1355,78 +1657,79 @@ open class Socket {
                                 /*
                                  Check Done Connect the Sokets.
                                  */
-                                if let overlayNetworkAddressAsString = overlayNetworkAddress?.toString {
-                                    let connectionFailCounter = self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.connectionFailCounter ?? 0
-                                    connectStatus = connected ? .doneSuccessfully : .failed
-                                    if connectStatus == .doneSuccessfully {
-                                        Log("Socket Have Opened")
+//                                if let overlayNetworkAddressAsString = overlayNetworkAddress.toString {
+                                let overlayNetworkAddressAsString = overlayNetworkAddress.toString
+                                let connectionFailCounter = self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.connectionFailCounter ?? 0
+                                connectStatus = connected ? .doneSuccessfully : .failed
+                                if connectStatus == .doneSuccessfully {
+                                    Log("Socket Have Opened")
+                                    /*
+                                     Socket Have Opened (Connected)
+                                     Goto Do select() async.
+                                     */
+                                    Log(self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.connected as Any)
+                                } else {
+                                    Log("Socket Not Open yet")
+                                    /*
+                                     Close Old Socket
+                                     */
+                                    if socketFd != -1 {
                                         /*
-                                         Socket Have Opened (Connected)
-                                         Goto Do select() async.
+                                         Check Soket whether Connected to Peer.
                                          */
-                                        Log(self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.connected as Any)
-                                    } else {
-                                        Log("Socket Not Open yet")
-                                        /*
-                                         Close Old Socket
-                                         */
-                                        if socketFd != -1 {
-                                            /*
-                                             Check Soket whether Connected to Peer.
-                                             */
-                                            let sendHandshake: ContiguousArray<CChar> = " ".utf8CString
-                                            var sentStatus: Int?
-                                            errno = 0
-                                            sentStatus = sendHandshake.withUnsafeBytes {
-                                                Log("Will Write Length: \($0.count)")
+                                        let sendHandshake: ContiguousArray<CChar> = " ".utf8CString
+                                        var sentStatus: Int?
+                                        errno = 0
+                                        sentStatus = sendHandshake.withUnsafeBytes {
+                                            Log("Will Write Length: \($0.count)")
 //                                              return send(socketFd, $0.baseAddress, $0.count, 0)
-                                                #if os(iOS)
-                                                return send(socketFd, $0.baseAddress, $0.count, 0)
-                                                #elseif os(Linux)
-                                                return send(socketFd, $0.baseAddress, $0.count, MSG_NOSIGNAL)
-                                                #endif
-                                            }
-                                            if let sentStatus = sentStatus, sentStatus >= 0 {
-                                                Log("Already Open Socket.")
-                                            } else {
-                                                Log("Close Old Socket")
-                                                let closeRet = close(socketFd)
-                                                Log(closeRet)
-                                                //LogPosixError()
-                                                self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.socketFd = -1
-                                            }
+                                            #if os(iOS)
+                                            return send(socketFd, $0.baseAddress, $0.count, 0)
+                                            #elseif os(Linux)
+                                            return send(socketFd, $0.baseAddress, $0.count, MSG_NOSIGNAL)
+                                            #endif
                                         }
-                                        if let connected = self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.connected, connected {
-                                            LogCommunicate("Already Open Socket.")
+                                        if let sentStatus = sentStatus, sentStatus >= 0 {
+                                            Log("Already Open Socket.")
                                         } else {
-                                            /*
-                                             Open Socket
-                                             */
-                                            LogCommunicate("Open Socket")
-#if ConnectSynchronously
-                                            Log("Connect Synchronously (Remove -DConnectSynchronously to Build Setting - Swift Custum Flags if wanna Connect Asynchronous.)")
-                                            var connectionSucceeded = false
-                                            var connectionTime = 0
-                                            while !connectionSucceeded {
-                                                connectionTime += 1
-                                                Log(connectionTime)
-                                                let (socketHandle, sourceAddress, connectionSucceeded) = openSocket(to: address, addressSpace: addressSpace, source: ownNodePrivateAddress)
-                                                shutdown(socketHandle, SHUT_RDWR)   //Connect Syncronouslly
-                                                close(socketHandle)
-                                            }
-#else
-                                            //MARK: - Connect
-                                            Log(address)
-                                            let (socketHandle, sourceAddress, connectionSucceeded) = openSocket(to: address, addressSpace: addressSpace, source: ownNodePrivateAddress, async: true)
-#endif
-                                            self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace] = (addressSpace: addressSpace, socketFd: socketHandle, peerAddress: address, overlayNetworkAddress: overlayNetworkAddress, connected: connectionSucceeded, connectionFailCounter: connectionFailCounter)
-                                            Log("Append a Socket.")
-                                            Log(peerType)
-                                            Log(self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace] as Any)
-                                            self.doUpdateFdSet = true   //for handshake
+                                            Log("Close Old Socket")
+                                            let closeRet = close(socketFd)
+                                            Log(closeRet)
+                                            //LogPosixError()
+                                            self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.socketFd = -1
                                         }
                                     }
+                                    if let connected = self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace]?.connected, connected {
+                                        LogCommunicate("Already Open Socket.")
+                                    } else {
+                                        /*
+                                         Open Socket
+                                         */
+                                        LogCommunicate("Open Socket")
+#if ConnectSynchronously
+                                        Log("Connect Synchronously (Remove -DConnectSynchronously to Build Setting - Swift Custum Flags if wanna Connect Asynchronous.)")
+                                        var connectionSucceeded = false
+                                        var connectionTime = 0
+                                        while !connectionSucceeded {
+                                            connectionTime += 1
+                                            Log(connectionTime)
+                                            let (socketHandle, sourceAddress, connectionSucceeded) = openSocket(to: address, addressSpace: addressSpace, source: ownNodePrivateAddress)
+                                            shutdown(socketHandle, SHUT_RDWR)   //Connect Syncronouslly
+                                            close(socketHandle)
+                                        }
+#else
+                                        //MARK: - Connect
+                                        Log(address)
+                                        let (socketHandle, sourceAddress, connectionSucceeded) = openSocket(to: address, addressSpace: addressSpace, source: ownNodePrivateAddress, async: true)
+#endif
+                                        self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace] = (addressSpace: addressSpace, socketFd: socketHandle, peerAddress: address, overlayNetworkAddress: overlayNetworkAddress, connected: connectionSucceeded, connectionFailCounter: connectionFailCounter)
+                                        Log("Append a Socket.")
+                                        Log(peerType)
+                                        Log(self.socketHandles[peerType]?[overlayNetworkAddressAsString]?[addressSpace] as Any)
+                                        self.doUpdateFdSet = true   //for handshake
+                                    }
                                 }
+//                                }
                             }
                         }
                     }
@@ -1595,10 +1898,10 @@ open class Socket {
                 Log(node.ipAndPortString)
                 node.printSocketQueue() //MARK: r/w dequeue
                 if let firstJob = node.socketQueues.firstQueueTypeLocal() {
-                    Log("Have Command to Local Execution to First.")
+                    LogEssential("Have Command to Local Execution to First.")
                     let _ = node.socketQueues.deQueue()
                     Log(firstJob.token)
-                    Log(firstJob)
+                    LogEssential(firstJob)
                     //                    Log(peerAddressPairs as Any)
                     var commandInstance: CommandProtocol = firstJob.command
                     if firstJob.command.rawValue == "", let command = node.premiumCommand {
@@ -1612,9 +1915,9 @@ open class Socket {
                         commandInstance = node.premiumCommand?.command(command.rawValue) ?? command
                         commandInstance = command
                     }
-                    Log("from \(node.dhtAddressAsHexString) to overlayNetworkAddress:\(firstJob.toOverlayNetworkAddress) command:\(commandInstance.rawValue) operand:\(firstJob.operand)")
+                    LogEssential("from \(node.dhtAddressAsHexString) to overlayNetworkAddress:\(firstJob.toOverlayNetworkAddress) command:\(commandInstance.rawValue) operand:\(firstJob.operand)")
                     if firstJob.type == .local {
-                        Log("Send Command to oneself.")
+                        LogEssential("Send Command to oneself.")
                         let sentDataNodeIp = node.getIp
                         Log(sentDataNodeIp as Any)
                         /*
@@ -1693,7 +1996,7 @@ open class Socket {
             func readPhase() -> Bool {  Log()
                 var returnValue = false
                 if let readableSocketHandles = catchedSocketHandles(readable_fd_set, peerTypes: self.mode.stack[communicationProcess.phase].peerTypes) {
-                    LogCommunicate("\(self.mode) r \(self.communicationProcess.phase)")
+                    Log("\(self.mode) r \(self.communicationProcess.phase)")
                     Log("Socket Have Read Data as Readable.")
                     /*
                      Receive Data (Command & Operands)
@@ -1705,7 +2008,7 @@ open class Socket {
                         errno = 0
                         var readableSocketNoError = false
                         let (findipResult, addressSpace, _) = self.findIpAndAddressSpace(socketFd: socketFd)
-                        LogCommunicate("\(socketFd): \(findipResult as Any)")
+                        Log("\(socketFd): \(findipResult as Any)")
                         if let findipResult = findipResult, let addressSpace = addressSpace { Log()
                             Log(socketFd)
                             // Check the socket
@@ -1847,7 +2150,7 @@ open class Socket {
                                             let _ = node.socketQueues.deQueue(toOverlayNetworkAddress: firstJob.toOverlayNetworkAddress, token: firstJob.token)
                                             //                                        Log("Send Command to oneself.")
                                             LogEssential(firstJob.token)
-                                            LogEssential(firstJob)
+                                            LogEssential("\(firstJob.command) \(firstJob.operand)")
                                             //Log(peerAddressPairs as Any)
                                             LogEssential("Send Command to oneself.")
                                             let sentDataNodeIp = node.getIp
@@ -1894,8 +2197,8 @@ open class Socket {
                                             } else {
                                                 //                                                Log("----------- Not translate cause Go to signaling mode -----------")
                                                 LogEssential("----------- Did NOT Translate cause Go to signaling mode for Ask Addresses to Signaling Server. \(firstJob.toOverlayNetworkAddress) -----------")
-                                                LogEssential(firstJob.toOverlayNetworkAddress)
-                                                LogEssential(firstJob)
+                                                Log(firstJob.toOverlayNetworkAddress)
+                                                Log(firstJob)
                                                 if let nextMode = self.mode.stack[communicationProcess.phase].nextMode, let peerTypes = nextMode.stack.first?.peerTypes {
                                                     LogEssential()
                                                     self.mode = nextMode
@@ -1924,13 +2227,39 @@ open class Socket {
                                         }
                                     }
                                 }
+                                if let doCommand = self.mode.stack[communicationProcess.phase].doCommands?.contains(.translateNak), doCommand {
+                                    if command == Mode.SignalingCommand.translateNak.rawValue {LogEssential("++++++++ Received translateNak ++++++++")
+                                        LogEssential(receivedCommandOperand)
+                                        //MARK: r translateNak
+                                        /*
+                                         "translateNak {0}".format(overlayNetworkAddress)
+                                         ↓
+                                         exceptUntranslate送信
+                                         */
+//                                        self.mode = .exception
+//                                        self.communicationProcess.nextMode()
+                                        /*
+                                         Received Command for defined in overlayNetwork / blocks.
+                                         
+                                         Possibility, Receive Command exchangeToken, when peer Node Not Receive Remote Token of The Node yet.
+                                         */
+                                        if let (sentDataNodeIp, sentDataNodePort) = findIp(socketFd: socketFd) {
+                                            LogEssential(sentDataNodeIp as Any)
+                                            LogEssential(receivedDataLength as Any)
+                                            if receivedDataLength > 0 {LogEssential()
+                                                callback(sentDataNodeIp, dataRange)
+                                            }
+                                        }
+                                        self.mode = .dequeueJob
+                                        self.communicationProcess.nextMode()
+                                    }
+                                }
                                 if let doCommand = self.mode.stack[communicationProcess.phase].doCommands?.contains(.translateAck), doCommand {
                                     if command == Mode.SignalingCommand.translateAck.rawValue {LogEssential("++++++++ Received translateAck ++++++++")
                                         LogEssential(receivedCommandOperand)
                                         //MARK: r translateAck
                                         /*
                                          Received Command for defined in Signaling.
-                                         
                                          自node と peer 双方に接続要求を知らせてきた
                                          ["ack", "153.243.66.142", "1040", "192.168.0.34", "54512", "", "", "", "", "", "", "",...
                                          */
@@ -1972,10 +2301,12 @@ open class Socket {
                                                         //Already made
                                                     } else {
                                                         //when Empty
-                                                        self.socketHandles[peerType] = [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]()
+//                                                        self.socketHandles[peerType] = [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]]()
+                                                        self.socketHandles[peerType] = [String: [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString, connected: Bool, connectionFailCounter: Int)]]()
                                                     }
                                                     if (peerType == .signalingServer && overlayNetworkAddress == "") || (peerType == .peerNode && overlayNetworkAddress != "") {
-                                                        var socketElement = [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]()
+//                                                        var socketElement = [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString?, connected: Bool, connectionFailCounter: Int)]()
+                                                        var socketElement = [Socket.AddressSpace: (addressSpace: Socket.AddressSpace, socketFd: Int32, peerAddress: (ip: String, port: Int), overlayNetworkAddress: OverlayNetworkAddressAsHexString, connected: Bool, connectionFailCounter: Int)]()
                                                         if let publicAddress = publicAddress {
                                                             socketElement[.public] = (addressSpace: .public, socketFd: -1, peerAddress: publicAddress, overlayNetworkAddress: overlayNetworkAddress, connected: false, connectionFailCounter: 0)
                                                         }
@@ -2010,32 +2341,10 @@ open class Socket {
                                     //MARK: r dequeueJob
                                     LogEssential()
                                     /*
-                                     Receivable translateAck command from Other Nodes.
-                                     
-                                     translateAck受信した場合
-                                     ↓
-                                     socketHandlesにpeer追加してconnect
-                                     ↓
-                                     handShake　＊この間は他nodeとの通信はしない
-                                     ↓
-                                     select socketsに2nodeめを追加
-                                     ↓
-                                     複数nodeと通信　←selectで有効なsocketと通信する
-                                     */
-                                    Log()
-                                    /*
                                      Received Command for defined in overlayNetwork / blocks.
                                      
                                      Possibility, Receive Command exchangeToken, when peer Node Not Receive Remote Token of The Node yet.
                                      */
-                                    /*
-                                     Commands Sending Node could is Signaling Server (Boot Node).
-                                     */
-//                                    let sentDataNodeIp = findIp(socketFd: socketFd)?.ip
-//                                    if let sentDataNodeIp = sentDataNodeIp, sentDataNodeIp != signalingServerAddress.0, receivedDataLength > 0, command != Mode.SignalingCommand.exchangeToken.rawValue {Log()
-//                                        //tell app range(start index, end index)
-//                                        callback(sentDataNodeIp, dataRange)
-//                                    }
                                     if let (sentDataNodeIp, sentDataNodePort) = findIp(socketFd: socketFd) {
                                         LogEssential(sentDataNodeIp as Any)
                                         LogEssential(receivedDataLength as Any)
@@ -2152,11 +2461,50 @@ open class Socket {
                             }
                             LogCommunicate(sendAckStatus ?? "nil")
                             communicationProcess.increment()
+//                        } else if let doCommand = mode.stack[communicationProcess.phase].doCommands?.first, doCommand == .exceptUnTranslate {
+//                            //MARK: w exceptUnTranslate →BabySitterNode
+//                            Log()
+//                            /*
+//                             Send exceptUnTranslate {address length} {overlay network address}
+//                             */
+//                            node.printSocketQueue()
+//                            guard let firstJob = node.socketQueues.queues.first else {
+//                                Log("Not Have to Send Command.")
+//                                return false
+//                            }
+//                            Log(firstJob.token)
+//                            Log(firstJob)
+//                            let toOverlayNetworkAddress = firstJob.toOverlayNetworkAddress.toString
+//                            var sendNodeInformationStatus: Int?
+//                            var sendNodeInformation: ContiguousArray<CChar>?
+//                            sendNodeInformation = (doCommand.rawValue + " " + String(toOverlayNetworkAddress.count) + " " + toOverlayNetworkAddress.toString + " ").utf8CString
+//                            
+//                            Log(sendNodeInformation ?? "nil")
+//                            LogCommunicate(sendNodeInformation?.toString as Any)
+//                            if let sendNodeInformation = sendNodeInformation {
+//                                guard let writableSocket = writableSocketHandles.first else {
+//                                    Log("_ _")
+//                                    return false
+//                                }
+//                                sendNodeInformationStatus = sendNodeInformation.withUnsafeBytes {
+//                                    #if os(iOS)
+//                                    send(writableSocket, $0.baseAddress, $0.count, 0)
+//                                    #elseif os(Linux)
+//                                    send(writableSocket, $0.baseAddress, $0.count, MSG_NOSIGNAL)
+//                                    #endif
+//                                }
+//                            }
+//                            LogCommunicate(sendNodeInformationStatus ?? "nil")
+//                            if let nextMode = self.mode.stack[communicationProcess.phase].nextMode {
+//                                Log()
+//                                self.mode = nextMode
+//                                communicationProcess.nextMode()
+//                            }
                         } else if let doCommand = mode.stack[communicationProcess.phase].doCommands?.first, doCommand == .translate {
                             //MARK: w translate
                             Log()
                             /*
-                             Send translate {address length} {overlay network address}
+                             Send translate {address length} {overlay network address} {token}
                              */
                             node.printSocketQueue()
                             guard let firstJob = node.socketQueues.queues.first else {
@@ -2166,9 +2514,12 @@ open class Socket {
                             Log(firstJob.token)
                             Log(firstJob)
                             let toOverlayNetworkAddress = firstJob.toOverlayNetworkAddress.toString
+                            let token = firstJob.token
                             var sendNodeInformationStatus: Int?
                             var sendNodeInformation: ContiguousArray<CChar>?
-                            sendNodeInformation = (doCommand.rawValue + " " + String(toOverlayNetworkAddress.count) + " " + toOverlayNetworkAddress.toString).utf8CString
+//                            sendNodeInformation = (doCommand.rawValue + " " + String(toOverlayNetworkAddress.count) + " " + toOverlayNetworkAddress.toString).utf8CString
+                            sendNodeInformation = (doCommand.rawValue + " " + String(toOverlayNetworkAddress.count) + " " + toOverlayNetworkAddress.toString + " " + token).utf8CString
+                            
                             Log(sendNodeInformation ?? "nil")
                             LogCommunicate(sendNodeInformation?.toString as Any)
                             if let sendNodeInformation = sendNodeInformation {
@@ -2259,7 +2610,7 @@ open class Socket {
                                 Log("Not Have Command to Send.")
                                 return false
                             }
-                            Log("\(firstJob.command) \(firstJob.operand)")
+                            LogEssential("\(firstJob.command) \(firstJob.operand)")
                             /*
                              overlayNetworkAddress →ip address pair への翻訳が済んでいたら
                              ↓
@@ -2283,7 +2634,7 @@ open class Socket {
                             }
                             Log("from \(node.dhtAddressAsHexString) to overlayNetworkAddress:\(firstJob.toOverlayNetworkAddress) command:\(commandInstance.rawValue) operand:\(firstJob.operand)")
                             if firstJob.type == .local || firstJob.toOverlayNetworkAddress.equal(node.dhtAddressAsHexString) {
-                                Log("Local Job")
+                                LogEssential("Local Job")
                                 let _ = node.socketQueues.deQueue(toOverlayNetworkAddress: firstJob.toOverlayNetworkAddress, token: firstJob.token)
                                 Log("Send Command to oneself.")
                                 let sentDataNodeIp = node.getIp
@@ -2326,9 +2677,9 @@ open class Socket {
                                 Log(firstJob.toOverlayNetworkAddress)
                                 Log(self.socketHandles)
                                 if let (writableSocket, connected) = didTranslate(firstJob.toOverlayNetworkAddress) {
-                                    Log("Translated - the OverlayNetworkAddress \(firstJob.toOverlayNetworkAddress) was entered to {socketHaneles}.")
+                                    LogCommunicate("Translated - the OverlayNetworkAddress \(firstJob.toOverlayNetworkAddress) was entered to {socketHaneles}.")
                                     if let writableSocket = writableSocket, writableSocket > 0, connected {
-                                        Log("\(firstJob.toOverlayNetworkAddress) Have translated & connected to \(writableSocket).")
+                                        LogCommunicate("\(firstJob.toOverlayNetworkAddress) Have translated & connected to \(writableSocket).")
                                         Log("Will Send Command to Other Node. \(writableSocket)")
                                         var sentStatus: Int?
                                         var sendDataAsCChar: ContiguousArray<CChar>?
@@ -2336,19 +2687,19 @@ open class Socket {
                                         sendDataAsCChar = transData.utf8String?.utf8CString
                                         //Log("\(sendDataAsCChar?.toString as Any) to findipResult as Any")
                                         if let sendDataAsCChar = sendDataAsCChar {
-                                            Log(writableSocketHandles)
+                                            LogCommunicate(writableSocketHandles)
                                             if !writableSocketHandles.contains(writableSocket) {
-                                                Log("The Destination overlayNetworkAddress No There in Writable Sockets (writableSocketHandles).")
+                                                LogCommunicate("The Destination overlayNetworkAddress No There in Writable Sockets (writableSocketHandles).")
                                                 return false
                                             }
-                                            Log(writableSocket)
+                                            LogCommunicate(writableSocket)
                                             Log("Dequeue \(firstJob.command.rawValue) in socketQueues")
                                             let _ = node.socketQueues.deQueue(toOverlayNetworkAddress: firstJob.toOverlayNetworkAddress, token: firstJob.token)
                                             /*
                                              SO_NOSIGPIPE: NOT generate signal as broken communication pipe (must set the flag on setsockopt().)
                                              */
                                             let (findipResult, addressSpace, _) = self.findIpAndAddressSpace(socketFd: writableSocket)
-                                            LogCommunicate("\(sendDataAsCChar.toString as Any) to \(findipResult as Any)")
+                                            LogEssential("\(sendDataAsCChar.toString as Any) to \(findipResult as Any)")
                                             //TCP_NODELAY: don't delay send to coalesce packets
                                             sentStatus = sendDataAsCChar.withUnsafeBytes {
 //                                                send(writableSocket, $0.baseAddress, $0.count, 0)
@@ -2358,12 +2709,12 @@ open class Socket {
                                                 send(writableSocket, $0.baseAddress, $0.count, MSG_NOSIGNAL)
                                                 #endif
                                             }
-                                            LogPosixError()
+                                            LogPosixErrorEssential()
                                         }
                                         LogCommunicate(sentStatus ?? "nil")
                                     }
                                 } else {
-                                    LogEssential("----------- Did NOT Translate cause Go to signaling mode for Ask Addresses to Signaling Server. -----------")
+                                    LogEssential("----------- Did NOT Translate cause Go to signaling mode for Ask Addresses to Signaling Server. \(firstJob.toOverlayNetworkAddress) -----------")
                                     Log(firstJob.toOverlayNetworkAddress)
                                     Log(firstJob)
                                     /*
@@ -2454,7 +2805,7 @@ open class Socket {
     }
 
     private func LogCommunicate(_ object: Any = "", functionName: String = #function, fileName: String = #file, lineNumber: Int = #line) {
-        #if false
+        #if true
         let className = (fileName as NSString).lastPathComponent
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
