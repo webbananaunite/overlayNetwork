@@ -117,15 +117,15 @@ public class Finger: Equatable {
         return self.successorNodeCandidates.count > 1
     }
     public func swapFirstSuccessor(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) {
-        LogEssential(self.successorNodeCandidates)
+        Log(self.successorNodeCandidates)
         if let firstSuccessorNodeDhtAddress = self.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress), self.isThereMultipleCandidates {
             self.successorNodeCandidates.insert(self.firstSuccessorNode, at: self.successorNodeCandidates.endIndex)
             self.successorNodeCandidates.remove(at: 0)
 //            self.successorNodeCandidates.insert(self.secondSuccessorNode, at: 0)
 //            self.successorNodeCandidates.remove(at: 2)
-            LogEssential()
+            Log()
         }
-        LogEssential(self.successorNodeCandidates)
+        Log(self.successorNodeCandidates)
     }
 
     /*
@@ -187,7 +187,7 @@ public class Finger: Equatable {
             Log("\(jsonData.utf8String ?? "")")
             try jsonData.append(to: url)
         } catch {
-            LogEssential("Save Json Error \(error)")
+            Log("Save Json Error \(error)")
         }
     }
     public static func storePredecessor(overlayNetworkAddress: OverlayNetworkAddressAsHexString) {
@@ -227,7 +227,7 @@ public class Finger: Equatable {
     }
 
     public func print() {
-#if true
+#if false
         Swift.print("---Stored-------\n")
         do {
             let result = try String(contentsOf: URL(fileURLWithPath: Finger.archiveFilePath), encoding: .utf8)

@@ -508,7 +508,7 @@ public extension Data {
                  */
                 let carryDownValue: UInt = arguments.index == Data.LSBIndex ? Data.Radix : Data.Radix - 1
                 if newTurnaround {
-                    dump(newSelf)
+//                    dump(newSelf)
                     Log("T \(carryDownValue) + \(UInt(arguments.decrementValue)) - \(UInt(newSelf[Int(arguments.index)]))")
                     newSelf[Int(arguments.index)] = UInt8(carryDownValue + UInt(arguments.decrementValue) - UInt(newSelf[Int(arguments.index)]))
                 } else {

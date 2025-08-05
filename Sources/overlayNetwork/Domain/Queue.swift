@@ -75,6 +75,32 @@ open class Job {
             self.token = ""
         }
     }
+    public enum CommandType {
+        case overlayNetwork  //overlayNetwork#Command
+        case premium         //blocks#Command
+        case signaling       //SignalingCommand
+        case unknown
+    }
+    public func commandType(premiumCommand: CommandProtocol?) -> (CommandType, CommandProtocol?) {
+        var commandType: CommandType = .unknown
+        var commandInstance: CommandProtocol?
+        if let command = Command(rawValue: self.command.rawValue) {
+            commandType = .overlayNetwork
+            commandInstance = command
+        } else if let command = premiumCommand?.command(self.command.rawValue), command.rawValue != Command.other.rawValue {
+            commandType = .premium
+            commandInstance = command
+        } else if let command = Mode.SignalingCommand(rawValue: self.command.rawValue) {
+            commandType = .signaling
+            commandInstance = command
+        }
+        LogCommunicate(commandInstance as Any)
+        return (commandType, commandInstance)
+    }
+    public func isSignalingCommand(node: Node) -> Bool {
+        let (commandType, _)  = commandType(premiumCommand: node.premiumCommand)
+        return commandType == .signaling
+    }
 }
 
 open class Queue {
@@ -130,7 +156,7 @@ open class Queue {
         }
         Log(matchedJob?.token)
         Log(matchedJob?.time)
-        Log(matchedJob?.command)
+        LogCommunicate(matchedJob?.command)
         if let matchedJob = matchedJob {
             matchedJob.status = .dequeued
             self.replace(before: matchedJob, after: matchedJob)
@@ -228,7 +254,7 @@ open class Queue {
             {type.contains($0.type)}
         ]
 //        printQueueEssential()
-        Log(self.queues.count)
+        LogCommunicate(self.queues.count)
         let matchedJobs = self.queues.filter {
             queue in
             return conditions.reduce(true) {
@@ -236,7 +262,7 @@ open class Queue {
                 return $0 && $1(queue)
             }
         }
-        Log(matchedJobs.count)
+        LogCommunicate(matchedJobs.count)
         Log(matchedJobs)
         /*
          if have same token jobs, will adopt the type .delegate or .local.
@@ -303,6 +329,7 @@ open class Queue {
             print("time:\(queue.element.time)")
             print("command:\(queue.element.command)")
             print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
+            print("toOverlayNetworkAddress:\(queue.element.toOverlayNetworkAddress)")
             print("operand:\(queue.element.operand)")
             print("type:\(queue.element.type)")
             print("result:\(queue.element.result)")
