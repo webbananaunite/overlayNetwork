@@ -777,20 +777,20 @@ open class Node: NodeProtocol {
                         return
                     }
                     self.binaryAddress = binaryAddress
-//                } else if Node.behaviorAs(nodeType: .RunAsSecondNode) {
-//                    LogEssential("RunAsSecondNode")
-//                    self.dhtAddressAsHexString = "afc8444946a28065f94a683633ae7359739ac6fc97332fb863e41b23dbbad6fc4d83d78f42fa1209e0e8481dda10d1edb343e2890e8f0bd17792975f9474e541"
-//                    guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
-//                        return
-//                    }
-//                    self.binaryAddress = binaryAddress
-//                } else if Node.behaviorAs(nodeType: .RunAsThirdNode) {
-//                    LogEssential("RunAsThirdNode")
-//                    self.dhtAddressAsHexString = "f8ff989404ec62c10aa0498eafb6451b411b6b44eeeb169a7f59709a6b11be5682d637964e5b1fc449796c22132c1449d2d2af14f328b5c9e17237d3cd725b57"
-//                    guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
-//                        return
-//                    }
-//                    self.binaryAddress = binaryAddress
+                } else if Node.behaviorAs(nodeType: .RunAsSecondNode) {
+                    LogEssential("RunAsSecondNode")
+                    self.dhtAddressAsHexString = "afc8444946a28065f94a683633ae7359739ac6fc97332fb863e41b23dbbad6fc4d83d78f42fa1209e0e8481dda10d1edb343e2890e8f0bd17792975f9474e541"
+                    guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
+                        return
+                    }
+                    self.binaryAddress = binaryAddress
+                } else if Node.behaviorAs(nodeType: .RunAsThirdNode) {
+                    LogEssential("RunAsThirdNode")
+                    self.dhtAddressAsHexString = "f8ff989404ec62c10aa0498eafb6451b411b6b44eeeb169a7f59709a6b11be5682d637964e5b1fc449796c22132c1449d2d2af14f328b5c9e17237d3cd725b57"
+                    guard let binaryAddress = self.dhtAddressAsHexString.dataAsString(using: .hexadecimal) else {
+                        return
+                    }
+                    self.binaryAddress = binaryAddress
                 } else {
                     Log()
                     self.dhtAddressAsHexString = nodeAddress

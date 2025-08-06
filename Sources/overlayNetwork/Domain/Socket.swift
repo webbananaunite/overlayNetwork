@@ -502,14 +502,7 @@ x     return signaling phase
             
         case .handshake:
             return [
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
-                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode]),
+                ([.send, .receive], [.exchangeToken: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase)), .translateAck: ((.dequeueJob, Mode.topPhase), (.dequeueJob, Mode.topPhase))], ([.exchangeToken], [.exchangeToken, .translateAck]), [.peerNode])
             ]
 
         case .dequeueJob:
@@ -2097,6 +2090,7 @@ open class Socket {
                             LogCommunicate(receivedCommandOperand)
                             let command = receivedCommandOperand[0]
                             var handOffReceivedDataToNode = false
+                            var skipSwitchMode = false
                             if self.mode.stack[communicationProcess.phase].selects.contains(.receive) {
                                 let signalingCommands = mode.stack[communicationProcess.phase].doCommands.receive
                                 LogCommunicate("doCommands:\(self.mode.stack[communicationProcess.phase].doCommands.receive)")
@@ -2126,6 +2120,7 @@ open class Socket {
                                         //MARK: r registerMeAck
                                     case .exchangeToken:
                                         //MARK: r exchangeToken
+                                        skipSwitchMode = true
                                         if self.remote_token == "_" {
                                             self.remote_token = receivedCommandOperand[1]
                                             LogCommunicate("remote_token is now \(self.remote_token)")
@@ -2264,17 +2259,19 @@ open class Socket {
                                     /*
                                      Switch Next Mode & Phase.
                                      */
-                                    LogEssential("mode--\(self.communicationProcess.phase) \(self.mode)")
-                                    let nextMode = self.mode.stack[communicationProcess.phase].next[signalingCommand]?.receive?.mode
-                                    if let phase = self.mode.stack[communicationProcess.phase].next[signalingCommand]?.receive?.phase {
-                                        self.communicationProcess.phase = phase
-                                    } else {
-                                        self.communicationProcess.phase += 1
+                                    if !skipSwitchMode {
+                                        LogEssential("mode--\(self.communicationProcess.phase) \(self.mode)")
+                                        let nextMode = self.mode.stack[communicationProcess.phase].next[signalingCommand]?.receive?.mode
+                                        if let phase = self.mode.stack[communicationProcess.phase].next[signalingCommand]?.receive?.phase {
+                                            self.communicationProcess.phase = phase
+                                        } else {
+                                            self.communicationProcess.phase += 1
+                                        }
+                                        if let nextMode = nextMode {
+                                            self.mode = nextMode
+                                        }
+                                        LogEssential("mode--\(self.communicationProcess.phase) \(self.mode)")
                                     }
-                                    if let nextMode = nextMode {
-                                        self.mode = nextMode
-                                    }
-                                    LogEssential("mode--\(self.communicationProcess.phase) \(self.mode)")
                                 } else {
                                     /*
                                      Receive Non Signaling Command. (ex. overlayNetwork, blocks).
