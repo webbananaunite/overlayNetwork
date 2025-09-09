@@ -47,6 +47,9 @@ public protocol NodeProtocol: Equatable {
     func enQueue(socket job: Job)
     func addQueueAsFirst(socket job: Job)
     func deQueue(for queueType: Queue.QueueType) -> Job?
+    func deQueue(for queueType: Queue.QueueType, token: String) -> (Job?, Queue.Status)
+    func addQueueAsFirst(heartBeat job: Job)
+    func makeStatusWaitingReply(hearBeat token: String) -> (Job?, Job.Status)
 
     /*
      Archive to Device's Store.
@@ -113,7 +116,10 @@ public protocol NodeProtocol: Equatable {
     func fingersHave(overlayNetworkAddress: OverlayNetworkAddressAsHexString) -> (Bool, OverlayNetworkAddressAsHexString)
     func translateIntentionalAck() -> Void
     func translateIntentionalNak(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString?
-    
+    func connectIntentionalAcks() -> Void
+    func connectIntentionalNaks(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString?
+    func swapFirstSuccessorOnAnyFinger(currentSuccessorDhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString?
+
     func exceptUnTranslateReply(fixedOverlayNetworkAddress: OverlayNetworkAddressAsHexString, originalOverlayNetworkAddress: OverlayNetworkAddressAsHexString, originalToken: String) -> String?
 
     /*
@@ -123,8 +129,10 @@ public protocol NodeProtocol: Equatable {
     func printSocketQueue()
     func printSocketQueueEssential()
     func printQueue()
-    func printQueue(job: Job?)
-    func printSocketQueue(job: Job?)
+    func printHeartBeatQueue()
+    func printHeartBeatEssential()
+    func printQueue(job: Job?, queueType: Queue.QueueType)
+//    func printSocketQueue(job: Job?)
     func printFingerTable()
     func printFingerTableEssential()
     func printArchivedFingerTable()
@@ -204,6 +212,9 @@ public protocol NodeProtocol: Equatable {
     }
     var description: String {
         get
+    }
+    var temporaryInvalid: Bool {
+        get set
     }
     var communicatable: Bool {
         get
@@ -313,8 +324,12 @@ open class Node: NodeProtocol {
             if fingers.isEmpty {
                 return nil
             } else {
-//                return fingers[0].node
-                return fingers[0].successorNodeCandidates[0]
+                //return fingers[0].node
+                if fingers[0].successorNodeCandidates.isEmpty {
+                    return nil
+                } else {
+                    return fingers[0].successorNodeCandidates[0]
+                }
             }
         }
         set {
@@ -347,17 +362,35 @@ open class Node: NodeProtocol {
     
     open var babysitterNode: Node?       //Use as Taker     //Set at join()
     
+    //MARK: - HeartBeat Queue
+    public var heartBeatQueues = Queue()
+    /*
+     Enqueue as Last Element.
+     */
+    open func enQueue(heartBeat job: Job) {
+        printQueue(job: job, queueType: .HeartBeat)
+        self.heartBeatQueues.enQueue(job: job)
+    }
+    open func addQueueAsFirst(heartBeat job: Job) {
+        printQueue(job: job, queueType: .HeartBeat)
+        self.heartBeatQueues.enQueueAsFirst(job: job)
+    }
+    open func makeStatusWaitingReply(hearBeat token: String) -> (Job?, Job.Status) {
+        Log()
+        return self.heartBeatQueues.setStatus(token: token, type: nil, status: .waitingForReply)
+    }
+    
     //MARK: - Socket Queue (FIFO)
     public var socketQueues = Queue()
     /*
      Enqueue as Last Element.
      */
     open func enQueue(socket job: Job) {
-        printSocketQueue(job: job)
+        printQueue(job: job, queueType: .SocketCommunication)
         self.socketQueues.enQueue(job: job)
     }
     open func addQueueAsFirst(socket job: Job) {
-        printSocketQueue(job: job)
+        printQueue(job: job, queueType: .SocketCommunication)
         self.socketQueues.enQueueAsFirst(job: job)
     }
     /*
@@ -369,17 +402,32 @@ open class Node: NodeProtocol {
             return self.socketQueues.deQueue()
         } else if queueType == .CommandOperation {
             return self.queues.deQueue()
+        } else if queueType == .HeartBeat {
+            return self.heartBeatQueues.deQueue()
         }
         return nil
     }
-    
+    open func deQueue(for queueType: Queue.QueueType, token: String) -> (Job?, Queue.Status) {
+        Log()
+        if queueType == .SocketCommunication {
+            return self.socketQueues.deQueue(token: token, type: nil)
+        } else if queueType == .CommandOperation {
+            return self.queues.deQueue(token: token, type: nil)
+        } else if queueType == .HeartBeat {
+            self.heartBeatQueues.removeQueue(token: token)
+            return (nil, .succeeded)
+//            return self.heartBeatQueues.deQueue(token: token, type: nil)
+        }
+        return (nil, .notFound)
+    }
+
     public var translateTable = [String: String]()
     
-    //MARK: - Queue
+    //MARK: - Command Historical Queue
     public var queues = Queue()
     
     open func enQueue(job: Job) {
-        printQueue(job: job)
+        printQueue(job: job, queueType: .CommandOperation)
         self.queues.enQueue(job: job)
     }
     open func deQueue(token: String) -> (Job?, Queue.Status) {
@@ -389,6 +437,34 @@ open class Node: NodeProtocol {
     open func deQueueWithType(token: String, type: [Job.`Type`]?) -> (Job?, Queue.Status) {
         Log()
         return self.queues.deQueue(token: token, type: type)
+    }
+    open func printHeartBeatEssential() {
+        #if true
+        let className = (#file as NSString).lastPathComponent
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let dateString = formatter.string(from: Date())
+        print("PQ \(dateString) \(className) \(#function) l.\(#line)\n")
+        print("[PrintQueue]Essential")
+        print("Node: \(self.getIp)")
+        print("Queues: \(heartBeatQueues.queues.count)")
+        heartBeatQueues.queues.enumerated().forEach { queue in
+            print("\n")
+            print("[\(queue.offset)]")
+            print("time:\(queue.element.time)")
+            print("command:\(queue.element.command)")
+            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
+            print("toOverlayNetworkAddress:\(queue.element.toOverlayNetworkAddress)")
+            print("operand:\(queue.element.operand)")
+            print("type:\(queue.element.type)")
+            print("result:\(queue.element.result)")
+            print("status:\(queue.element.status)")
+            print("token:\(queue.element.token)")
+            print("previousJobToken:\(queue.element.previousJobToken)")
+            print("nextJobToken:\(queue.element.nextJobToken)")
+            print("\n")
+        }
+        #endif
     }
     open func printQueueEssential() {
         #if true
@@ -429,6 +505,34 @@ open class Node: NodeProtocol {
         print("Node: \(self.getIp)")
         print("Queues: \(socketQueues.queues.count)")
         socketQueues.queues.enumerated().forEach { queue in
+            print("\n")
+            print("[\(queue.offset)]")
+            print("time:\(queue.element.time)")
+            print("command:\(queue.element.command)")
+            print("fromOverlayNetworkAddress:\(queue.element.fromOverlayNetworkAddress)")
+            print("toOverlayNetworkAddress:\(queue.element.toOverlayNetworkAddress)")
+            print("operand:\(queue.element.operand)")
+            print("type:\(queue.element.type)")
+            print("result:\(queue.element.result)")
+            print("status:\(queue.element.status)")
+            print("token:\(queue.element.token)")
+            print("previousJobToken:\(queue.element.previousJobToken)")
+            print("nextJobToken:\(queue.element.nextJobToken)")
+            print("\n")
+        }
+        #endif
+    }
+    open func printHeartBeatQueue() {
+        #if false
+        let className = (#file as NSString).lastPathComponent
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let dateString = formatter.string(from: Date())
+        print("PQ \(dateString) \(className) \(#function) l.\(#line)\n")
+        print("[PrintSocketQueue]")
+        print("Node: \(self.getIp)")
+        print("Queues: \(heartBeatQueues.queues.count)")
+        heartBeatQueues.queues.enumerated().forEach { queue in
             print("\n")
             print("[\(queue.offset)]")
             print("time:\(queue.element.time)")
@@ -499,14 +603,14 @@ open class Node: NodeProtocol {
         }
         #endif
     }
-    open func printQueue(job: Job?) {
+    open func printQueue(job: Job?, queueType: Queue.QueueType) {
         #if true
         let className = (#file as NSString).lastPathComponent
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         let dateString = formatter.string(from: Date())
         print("PQ \(dateString) \(className) \(#function) l.\(#line)\n")
-        print("EnQueued Job to Queue.")
+        print("EnQueued Job to \(queueType.queueName())")
         guard let job = job else {
             print("Job is nil.")
             return
@@ -526,33 +630,61 @@ open class Node: NodeProtocol {
         print("\n")
         #endif
     }
-    open func printSocketQueue(job: Job?) {
-        #if true
-        let className = (#file as NSString).lastPathComponent
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        let dateString = formatter.string(from: Date())
-        print("PSQ \(dateString) \(className) \(#function) l.\(#line)\n")
-        print("EnQueued Job to SocketQueue.")
-        guard let job = job else {
-        print("Job is nil.")
-        return
-        }
-        print("Node: \(self.getIp)")
-        print("time:\(job.time)")
-        print("command:\(job.command)")
-        print("fromOverlayNetworkAddress:\(job.fromOverlayNetworkAddress)")
-        print("toOverlayNetworkAddress:\(job.toOverlayNetworkAddress)")
-        print("operand:\(job.operand)")
-        print("type:\(job.type)")
-        print("result:\(job.result)")
-        print("status:\(job.status)")
-        print("token:\(job.token)")
-        print("previousJobToken:\(job.previousJobToken)")
-        print("nextJobToken:\(job.nextJobToken)")
-        print("\n")
-        #endif
-    }
+//    open func printSocketQueue(job: Job?) {
+//        #if true
+//        let className = (#file as NSString).lastPathComponent
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "HH:mm:ss"
+//        let dateString = formatter.string(from: Date())
+//        print("PSQ \(dateString) \(className) \(#function) l.\(#line)\n")
+//        print("EnQueued Job to SocketQueue.")
+//        guard let job = job else {
+//        print("Job is nil.")
+//        return
+//        }
+//        print("Node: \(self.getIp)")
+//        print("time:\(job.time)")
+//        print("command:\(job.command)")
+//        print("fromOverlayNetworkAddress:\(job.fromOverlayNetworkAddress)")
+//        print("toOverlayNetworkAddress:\(job.toOverlayNetworkAddress)")
+//        print("operand:\(job.operand)")
+//        print("type:\(job.type)")
+//        print("result:\(job.result)")
+//        print("status:\(job.status)")
+//        print("token:\(job.token)")
+//        print("previousJobToken:\(job.previousJobToken)")
+//        print("nextJobToken:\(job.nextJobToken)")
+//        print("\n")
+//        #endif
+//    }
+//    
+//    open func printHeartBeatQueue(job: Job?) {
+//        #if true
+//        let className = (#file as NSString).lastPathComponent
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "HH:mm:ss"
+//        let dateString = formatter.string(from: Date())
+//        print("PSQ \(dateString) \(className) \(#function) l.\(#line)\n")
+//        print("EnQueued Job to SocketQueue.")
+//        guard let job = job else {
+//        print("Job is nil.")
+//        return
+//        }
+//        print("Node: \(self.getIp)")
+//        print("time:\(job.time)")
+//        print("command:\(job.command)")
+//        print("fromOverlayNetworkAddress:\(job.fromOverlayNetworkAddress)")
+//        print("toOverlayNetworkAddress:\(job.toOverlayNetworkAddress)")
+//        print("operand:\(job.operand)")
+//        print("type:\(job.type)")
+//        print("result:\(job.result)")
+//        print("status:\(job.status)")
+//        print("token:\(job.token)")
+//        print("previousJobToken:\(job.previousJobToken)")
+//        print("nextJobToken:\(job.nextJobToken)")
+//        print("\n")
+//        #endif
+//    }
     open func setJobResult(token: String, type: [Job.`Type`]?, result: String) -> (Job?, Queue.Status) {
         Log()
         return self.queues.setResult(token: token, type: type, result: result)
@@ -915,8 +1047,12 @@ open class Node: NodeProtocol {
         Log("dhtAddressAsHexString:\(dhtAddressAsHexString) ip:\(ip) port:\(port)")
     }
     
+    public var temporaryInvalid: Bool = false   //translate invalid or connect invalid, temporarily
     public var communicatable: Bool {
         if !self.dhtAddressAsHexString.isValid {
+            return false
+        }
+        if self.temporaryInvalid {
             return false
         }
         return true
@@ -928,10 +1064,10 @@ open class Node: NodeProtocol {
      */
     open func received(from sentOverlayNetworkAddress: String, data: String) {
         guard let (command, operand, token) = takeCommandAndData(data: data) else {
-            LogCommunicate()
+            Log()
             return
         }
-        LogCommunicate("\(command) from: \(sentOverlayNetworkAddress) data: \(data)")
+        Log("\(command) from: \(sentOverlayNetworkAddress) data: \(data)")
         /*
          Carry out each Command
          ex.
@@ -954,12 +1090,12 @@ open class Node: NodeProtocol {
         } else if let command = Mode.SignalingCommand(rawValue: command) {
             commandInstance = command
         }
-        LogCommunicate(commandInstance as Any)
+        Log(commandInstance as Any)
 
         var nodeProtocolSelf: any NodeProtocol = self
         let nextOperand = commandInstance?.receive(node: &nodeProtocolSelf, operands: operand, from: sentOverlayNetworkAddress, token: token)
         
-        guard let nextOperand = nextOperand else {LogCommunicate()
+        guard let nextOperand = nextOperand else {Log()
             return
         }
         
@@ -971,22 +1107,22 @@ open class Node: NodeProtocol {
          if self is 'Normal command'
          Send reply command to sender.
          */
-        LogCommunicate(command)
+        Log(command)
 //        if (Command(rawValue: command) ?? Command.other).isReply() {
         if let commandInstance = commandInstance, commandInstance.isReply() {
             Log(command)
             /*
              Check having previous job
              */
-            LogCommunicate("token: \(token)")
+            Log("token: \(token)")
             Log("type: [.delegate, .local]")
-            guard let job = self.fetchJobWithType(token: token, type: [.delegate, .local]), let _ = job.result else { LogCommunicate(token)
+            guard let job = self.fetchJobWithType(token: token, type: [.delegate, .local]), let _ = job.result else { Log(token)
                 self.printQueueEssential()
                 return
             }
             
             if let previousJob = self.fetchPreviousJobWithType(token: token, type: [.delegate, .local, .delegated]) {
-                LogCommunicate("PreviousJob: \(previousJob.command) - \(previousJob.command.rawValue)")
+                Log("PreviousJob: \(previousJob.command) - \(previousJob.command.rawValue)")
                 Log("fromOverlayNetworkAddress: \(previousJob.fromOverlayNetworkAddress) - \(nextOperand) - \(previousJob.token)")
                 //Send reply PREVIOUS command
 //                previousJob.command.reply(node: self, to: previousJob.fromOverlayNetworkAddress, operand: nextOperand, token: previousJob.token) {
@@ -994,20 +1130,20 @@ open class Node: NodeProtocol {
 //                    Log("Sent reply to \(sentOverlayNetworkAddress)")
 //                }
                 if previousJob.isSignalingCommand(node: self) {
-                    LogCommunicate()
+                    Log()
                     previousJob.command.replyForException(node: self, to: previousJob.fromOverlayNetworkAddress, operand: nextOperand, token: previousJob.token) {
                         a in
                         Log("Sent exception reply to \(sentOverlayNetworkAddress)")
                     }
                 } else {
-                    LogCommunicate()
+                    Log()
                     previousJob.command.reply(node: self, to: previousJob.fromOverlayNetworkAddress, operand: nextOperand, token: previousJob.token) {
                         a in
                         Log("Sent reply to \(sentOverlayNetworkAddress)")
                     }
                 }
             } else {
-                LogCommunicate("No PreviousJobs")
+                Log("No PreviousJobs")
             }
         } else {
             Log(command)
@@ -1054,7 +1190,7 @@ open class Node: NodeProtocol {
         //check terminator
         Log(data)
         let datas = data.components(separatedBy: Socket.communicationTerminatorChar)
-        LogCommunicate(datas)
+        Log(datas)
         guard datas[0].count >= 2 else {
             Log("Bad Data Terminator. \(datas[0].count)")
             return nil
@@ -1928,7 +2064,7 @@ open class Node: NodeProtocol {
      Do every boot up.
      */
     public func stabilize() {
-        LogCommunicate()
+        Log()
 //        guard let x = self.successor?.predecessor else {
 //            return
 //        }
@@ -1947,9 +2083,9 @@ open class Node: NodeProtocol {
         }
     }
     public func replyStabilize(candidateSuccessor: Node) {
-        LogCommunicate()
+        Log()
         if haveBetweenWithSuccessor(about: candidateSuccessor) {
-            LogCommunicate()
+            Log()
             /*
              There is New Node for Own Node's Successor.
              */
@@ -1957,30 +2093,30 @@ open class Node: NodeProtocol {
         }
 //        self.successor?.notify(node: self)
         guard let successorNodeOverlayNetworkAddress = self.successor?.dhtAddressAsHexString else {
-            LogCommunicate()
+            Log()
             return
         }
         Command.notifyPredecessor.send(node: self, to: successorNodeOverlayNetworkAddress, operands: [self.dhtAddressAsHexString.toString]) { a in
             Log("Run [notifyPredecessor] Command to \(successorNodeOverlayNetworkAddress).")
         }
-        LogCommunicate()
+        Log()
     }
     
     // node thinks it might be our predecessor.
     public func notify(node: Node) {
-        LogCommunicate()
+        Log()
         guard let predecessor = self.predecessor else {
-            LogCommunicate()
+            Log()
             self.predecessor = node
             self.triggerStoreFingerTable = true
             return
         }
         if have(node, between: predecessor) {
-            LogCommunicate()
+            Log()
             self.predecessor = node
             self.triggerStoreFingerTable = true
         }
-        LogCommunicate()
+        Log()
     }
     
     //periodically refresh finger table entries.
@@ -2033,14 +2169,51 @@ open class Node: NodeProtocol {
     }
     public func translateIntentionalNak(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString? {
         Log()
+//        var updatedSuccessorNodeAddress: OverlayNetworkAddressAsHexString?
+//        //nodeがもつfinger tableのエントリーを更新する手続きを行う
+//        self.fingers.enumerated().forEach {
+//            if let firstSuccessorNodeDhtAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress) {
+//                //successor nodesに他にエントリーがあればそのnodeをトップに入れ替える
+//                //bootNodeのfingerTableのsuccesserには必ずbootNodeがエントリーにある
+//                updatedSuccessorNodeAddress = $0.element.swapFirstSuccessor(dhtAddressAsHexString: dhtAddressAsHexString, ownNodeDhtAddressAsHexString: self.dhtAddressAsHexString)
+////                updatedSuccessorNodeAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString
+//                Log(updatedSuccessorNodeAddress as Any)
+//            }
+//        }
+//        return updatedSuccessorNodeAddress
+        return self.swapFirstSuccessorOnAnyFinger(currentSuccessorDhtAddressAsHexString: dhtAddressAsHexString)
+    }
+    public func connectIntentionalAcks() -> Void {
+        Log()
+    }
+    public func connectIntentionalNaks(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString? {
+        Log()
+//        var updatedSuccessorNodeAddress: OverlayNetworkAddressAsHexString?
+//        //nodeがもつfinger tableのエントリーを更新する手続きを行う
+//        self.fingers.enumerated().forEach {
+//            if let firstSuccessorNodeDhtAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress) {
+//                //successor nodesに他にエントリーがあればそのnodeをトップに入れ替える
+//                //bootNodeのfingerTableのsuccesserには必ずbootNodeがエントリーにある
+//                updatedSuccessorNodeAddress = $0.element.swapFirstSuccessor(currentSuccessorDhtAddressAsHexString: dhtAddressAsHexString, ownNodeDhtAddressAsHexString: self.dhtAddressAsHexString)
+////                updatedSuccessorNodeAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString
+//                Log(updatedSuccessorNodeAddress as Any)
+//            }
+//        }
+//        return updatedSuccessorNodeAddress
+        return self.swapFirstSuccessorOnAnyFinger(currentSuccessorDhtAddressAsHexString: dhtAddressAsHexString)
+    }
+    
+    public func swapFirstSuccessorOnAnyFinger(currentSuccessorDhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString? {
+        Log()
         var updatedSuccessorNodeAddress: OverlayNetworkAddressAsHexString?
         //nodeがもつfinger tableのエントリーを更新する手続きを行う
         self.fingers.enumerated().forEach {
-            if let firstSuccessorNodeDhtAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress), $0.element.isThereMultipleCandidates {
+            if let firstSuccessorNodeDhtAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString, currentSuccessorDhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress) {
                 //successor nodesに他にエントリーがあればそのnodeをトップに入れ替える
                 //bootNodeのfingerTableのsuccesserには必ずbootNodeがエントリーにある
-                $0.element.swapFirstSuccessor(dhtAddressAsHexString: dhtAddressAsHexString)
-                updatedSuccessorNodeAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString
+                updatedSuccessorNodeAddress = $0.element.swapFirstSuccessor(currentSuccessorDhtAddressAsHexString: currentSuccessorDhtAddressAsHexString, ownNodeDhtAddressAsHexString: self.dhtAddressAsHexString)
+//                updatedSuccessorNodeAddress = $0.element.firstSuccessorNode?.dhtAddressAsHexString
+                Log(updatedSuccessorNodeAddress as Any)
             }
         }
         return updatedSuccessorNodeAddress
@@ -2063,7 +2236,7 @@ open class Node: NodeProtocol {
                 return originalOperands
             }
             let fixedOperands = originalOperands.replacingOccurrences(of: originalOverlayNetworkAddress.toString, with: fixedOverlayNetworkAddress.toString)
-            LogCommunicate("originalOperands:\(originalOperands) fixedOperands:\(fixedOperands)")
+            Log("originalOperands:\(originalOperands) fixedOperands:\(fixedOperands)")
             return fixedOperands
         }
         return nil

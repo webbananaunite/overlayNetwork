@@ -116,16 +116,23 @@ public class Finger: Equatable {
     public var isThereMultipleCandidates: Bool {
         return self.successorNodeCandidates.count > 1
     }
-    public func swapFirstSuccessor(dhtAddressAsHexString: OverlayNetworkAddressAsHexString) {
+    public func swapFirstSuccessor(currentSuccessorDhtAddressAsHexString: OverlayNetworkAddressAsHexString, ownNodeDhtAddressAsHexString: OverlayNetworkAddressAsHexString) -> OverlayNetworkAddressAsHexString? {
         Log(self.successorNodeCandidates)
-        if let firstSuccessorNodeDhtAddress = self.firstSuccessorNode?.dhtAddressAsHexString, dhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress), self.isThereMultipleCandidates {
-            self.successorNodeCandidates.insert(self.firstSuccessorNode, at: self.successorNodeCandidates.endIndex)
-            self.successorNodeCandidates.remove(at: 0)
-//            self.successorNodeCandidates.insert(self.secondSuccessorNode, at: 0)
-//            self.successorNodeCandidates.remove(at: 2)
-            Log()
+        if let firstSuccessorNodeDhtAddress = self.firstSuccessorNode?.dhtAddressAsHexString, currentSuccessorDhtAddressAsHexString.equal(firstSuccessorNodeDhtAddress){
+            self.successorNodeCandidates[0]?.temporaryInvalid = true
+            if self.isThereMultipleCandidates {
+                if let secondNode = self.successorNodeCandidates[1], !secondNode.temporaryInvalid {
+                    self.successorNodeCandidates.insert(self.firstSuccessorNode, at: self.successorNodeCandidates.endIndex)
+                    self.successorNodeCandidates.remove(at: 0)
+                }
+            } else {
+                if let bootNode = Dht.getBabysitterNode(ownOverlayNetworkAddress: ownNodeDhtAddressAsHexString.toString) {
+                    self.successorNodeCandidates.insert(bootNode, at: self.successorNodeCandidates.startIndex)
+                }
+            }
         }
         Log(self.successorNodeCandidates)
+        return self.firstSuccessorNode?.dhtAddressAsHexString
     }
 
     /*

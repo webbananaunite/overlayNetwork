@@ -48,11 +48,22 @@ open class Job {
     }
     
     var result: String?
+    /*
+     Socket Queue:
+        Remove From Queue if be Sent.
+     Command Queue:
+        Set status .dequeued if be Sent.
+        Set result value if be Received Reply.
+     HeartBeat Queue:
+        Set status .waitingForReply if be Sent.
+        Set result value if be Received Reply.
+     */
     public var status: Status = .running
     public enum Status: Int {
-        case running = 0
-        case dequeued = 1   //representation for Completed Queue
+        case running = 0        //Initial Status
+        case dequeued = 1       //representation for Completed Queue, Use Command Queue Only.
         case undefined = 2
+        case waitingForReply = 3 //Use HeartBeat Queue Only.
     }
 
     var nextJobToken: String?
@@ -94,7 +105,7 @@ open class Job {
             commandType = .signaling
             commandInstance = command
         }
-        LogCommunicate(commandInstance as Any)
+        Log(commandInstance as Any)
         return (commandType, commandInstance)
     }
     public func isSignalingCommand(node: Node) -> Bool {
@@ -156,7 +167,7 @@ open class Queue {
         }
         Log(matchedJob?.token)
         Log(matchedJob?.time)
-        LogCommunicate(matchedJob?.command)
+        Log(matchedJob?.command)
         if let matchedJob = matchedJob {
             matchedJob.status = .dequeued
             self.replace(before: matchedJob, after: matchedJob)
@@ -167,12 +178,30 @@ open class Queue {
 
         return (nil, .notFound)
     }
+    open func removeQueue(token: String) {
+        Log()
+        self.queues = self.queues.filter {
+            $0.token != token
+        }
+    }
     /*
      Queue FIFO, Dequeue at First.
      */
     public enum QueueType: Int {
         case SocketCommunication = 1
         case CommandOperation = 2
+        case HeartBeat = 3
+        
+        public func queueName() -> String {
+            switch self {
+            case .SocketCommunication:
+                return "Socket Queue"
+            case .CommandOperation:
+                return "Command Queue"
+            case .HeartBeat:
+                return "HeartBeat Queue"
+            }
+        }
     }
     open func deQueue() -> Job? {
         Log()
@@ -208,7 +237,25 @@ open class Queue {
         }
         return nil
     }
-    
+
+    open func setStatus(token: String, type: [Job.`Type`]?, status: Job.Status) -> (Job?, Job.Status) {
+        Log()
+        var matchedJob: Job?
+        if let type = type {
+            matchedJob = fetchJobWithType(token: token, type: type)
+        } else {
+            matchedJob = fetchJob(token: token)
+        }
+        Log(matchedJob?.token)
+        Log(matchedJob?.time)
+        if let matchedJob = matchedJob {
+            matchedJob.status = status
+            self.replace(before: matchedJob, after: matchedJob)
+            return (matchedJob, status)
+        }
+        return (nil, .undefined)
+    }
+
     open func setResult(token: String, type: [Job.`Type`]?, result: String) -> (Job?, Status) {
         Log()
         var matchedJob: Job?
@@ -254,7 +301,7 @@ open class Queue {
             {type.contains($0.type)}
         ]
 //        printQueueEssential()
-        LogCommunicate(self.queues.count)
+        Log(self.queues.count)
         let matchedJobs = self.queues.filter {
             queue in
             return conditions.reduce(true) {
@@ -262,7 +309,7 @@ open class Queue {
                 return $0 && $1(queue)
             }
         }
-        LogCommunicate(matchedJobs.count)
+        Log(matchedJobs.count)
         Log(matchedJobs)
         /*
          if have same token jobs, will adopt the type .delegate or .local.

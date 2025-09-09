@@ -87,6 +87,7 @@ let package = Package(
         .iOS(.v16),
         .watchOS(.v9),
         .tvOS(.v16),
+        .macOS(.v13)
     ],
     products: productsSettings,
     dependencies: dependenciesSettings,

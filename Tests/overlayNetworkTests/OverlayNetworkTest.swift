@@ -33,7 +33,7 @@ final class OverlayNetworkTest: XCTestCase {
             /*
              Done Making Socket
              */
-            LogCommunicate(ownAddress as Any)
+            Log(ownAddress as Any)
         }) {
             sentDataNodeIp, dataRange in
             /*

@@ -189,7 +189,13 @@ public extension CommandProtocol {
             node.addQueueAsFirst(socket: socketJob)
         }
     }
-
+    func sendHeartBeat(node: any NodeProtocol, to overlayNetworkAddress: OverlayNetworkAddressAsHexString, operands: [String?], previousToken: String? = nil, callback: (String) -> Void) -> Void {
+        LogEssential("\(self.rawValue) \(operands) to \(overlayNetworkAddress)")
+        //Enqueue the Command
+        let operand = operandUnification(operands: operands)
+        let job = Job(command: self, operand: operand, from: node.dhtAddressAsHexString, to: overlayNetworkAddress, type: .delegate, token: nil, previousJobToken: previousToken)
+        node.addQueueAsFirst(heartBeat: job)
+    }
     //run in Local
     func run(node: any NodeProtocol, operands: [String?], previousToken: String? = nil, callback: (String) -> Void) -> Void {
         LogEssential("\(self.rawValue) \(operands)")
@@ -573,9 +579,9 @@ public enum Command: String, CommandProtocol {
                 /*
                  リソース取得完了
                  */
-                LogCommunicate("Have Fetched Resource: \(resultString)")
+                Log("Have Fetched Resource: \(resultString)")
             } else if let ipAndNode = Node(dhtAddressAsHexString: responsibleNodeOverlayNetworkAddress) {
-                LogCommunicate()
+                Log()
                 //Send FR Command to retry.
                 Command.fetchResource.send(node: node, to: ipAndNode.dhtAddressAsHexString, operands: [key]) { string in
                     Log(string)
@@ -626,7 +632,7 @@ public enum Command: String, CommandProtocol {
             Log("Do \(self.rawValue)")
             Log(operands)
             guard operandArray.count >= 2 else {
-                LogCommunicate(operandArray.count)
+                Log(operandArray.count)
                 return nil
             }
             /*
@@ -635,11 +641,11 @@ public enum Command: String, CommandProtocol {
              Notice:
              *Boot Node Don't Send Reply Command(Init finger table).
              */
-            LogCommunicate(doneAllFollowingJobs)
+            Log(doneAllFollowingJobs)
             let doneAllFingerTableEntry = node.availableFingerTable()
-            LogCommunicate(doneAllFingerTableEntry)
+            Log(doneAllFingerTableEntry)
             if doneAllFingerTableEntry && doneAllFollowingJobs {
-                LogCommunicate()
+                Log()
                 /*
                  Move to .initFingerTable
                  ↓
@@ -648,16 +654,16 @@ public enum Command: String, CommandProtocol {
                  */
             } else {
                 guard let babysitterNode = Node(dhtAddressAsHexString: operandArray[1]) else {
-                    LogCommunicate(operandArray.count)
+                    Log(operandArray.count)
                     return nil
                 }
-                LogCommunicate(babysitterNode.dhtAddressAsHexString)
+                Log(babysitterNode.dhtAddressAsHexString)
                 Command.initFingerTable.run(node: node, operands: [babysitterNode.dhtAddressAsHexString.toString]) {
                     string in
                     Log(string)
                 }
             }
-            LogCommunicate()
+            Log()
             return nil
         case .updateOthers : //MARK: updateOthers
             Log("Do \(self.rawValue)")
@@ -684,7 +690,7 @@ public enum Command: String, CommandProtocol {
             LogEssential(operandArray[3])    //3: predecessorsSuccessorNode's overlayNetwork Address
             //4: result (Not use)
             guard let index = Int(operandArray[0]) else {
-                LogCommunicate()
+                Log()
                 return nil
             }
             if let predecessorNode = Node(dhtAddressAsHexString: operandArray[2]), let successorNode = Node(dhtAddressAsHexString: operandArray[3]) {
@@ -693,10 +699,10 @@ public enum Command: String, CommandProtocol {
                  Chained from find predecessor as previous command.
                  */
                 //Likely 0...512
-                LogCommunicate("\(index) < \(node.fingers.count)")
+                Log("\(index) < \(node.fingers.count)")
                 if (0..<node.fingers.count).contains(index) {
                     //OW: if index >= 0 && index < node.fingers.count
-                    LogCommunicate("\(node.getIp) Call by UpdateOthers Loop (\(index)) to \(predecessorNode.getIp).")
+                    Log("\(node.getIp) Call by UpdateOthers Loop (\(index)) to \(predecessorNode.getIp).")
 //                    Log("\(index) \(predecessorNode.ip?.toString()) operands: \(node.ipAndPortString), \(String(index))")
                     Log("\(index) \(predecessorNode.ip?.toString()) operands: \(node.dhtAddressAsHexString.toString), \(String(index))")
                     Log(token)
@@ -707,7 +713,7 @@ public enum Command: String, CommandProtocol {
                 } else {
                 }
             } else {
-                LogCommunicate()
+                Log()
                 /*
                  Chained from update finger table as previous command.
                  */
@@ -744,20 +750,20 @@ public enum Command: String, CommandProtocol {
             Log("Do \(self.rawValue)")
             LogEssential(operandArray[0])    //0: finger table index
             guard let fingerTableIndex = Int(operandArray[0]) else {
-                LogCommunicate(operandArray[0])
+                Log(operandArray[0])
                 return nil
             }
             //Go to Next Index in Finger Table.
             if (0..<node.fingers.count).contains(fingerTableIndex) {
-                LogCommunicate(fingerTableIndex)
+                Log(fingerTableIndex)
                 //OW: if index >= 0 && index < node.fingers.count
                 if node.fingers.count - 1 == fingerTableIndex {
-                    LogCommunicate("Done All UO.")
+                    Log("Done All UO.")
                     /*
                      Have Done All UO.
                      */
                     if let successor = node.successor {
-                        LogCommunicate("\(successor.getIp)")
+                        Log("\(successor.getIp)")
                         Command.updateSuccessorsPredecessor.send(node: node, to: successor.dhtAddressAsHexString, operands: [node.dhtAddressAsHexString.toString], previousToken: token) {
                             _ in
                             Log("Sent [Update Successor's Predecessor] Command to \(successor.dhtAddressAsHexString).")
@@ -771,7 +777,7 @@ public enum Command: String, CommandProtocol {
                  Log(operandArray[3])    //3: predecessorsSuccessorNode's ipAndPort
                  //4: result (Not use)
                  */
-                LogCommunicate()
+                Log()
                 return operandUnification(operands: [String(fingerTableIndex), "", "", "", ""])
             }
             if fingerTableIndex == node.fingers.count {
@@ -807,7 +813,7 @@ public enum Command: String, CommandProtocol {
             LogEssential(operandArray[3])    //3: predecessorsSuccessorNode.overlayNetwork Address
             //4: result (Not use)   ex. "found"
             guard let predecessorNode = Node(dhtAddressAsHexString: operandArray[2]), let successorNode = Node(dhtAddressAsHexString: operandArray[3]) else {
-                LogCommunicate()
+                Log()
                 /*
                  Not found Successor node. Such as Operand == ""
                  
@@ -820,9 +826,9 @@ public enum Command: String, CommandProtocol {
              */
             Log(operandArray[0])
             if let fingerTableIndex = Int(operandArray[0]) {
-                LogCommunicate("update successor \(fingerTableIndex)")
+                Log("update successor \(fingerTableIndex)")
                 if fingerTableIndex == 0 {
-                    LogCommunicate("\(node.getIp).successor \(successorNode.getIp)")
+                    Log("\(node.getIp).successor \(successorNode.getIp)")
                     Log()
                 }
                 
@@ -831,7 +837,7 @@ public enum Command: String, CommandProtocol {
                 node.triggerStoreFingerTable = true
                 return operandUnification(operands: [String(fingerTableIndex), successorNode.dhtAddressAsHexString.toString])
             }
-            LogCommunicate()
+            Log()
             return nil
         case .findPredecessor : //MARK: findPredecessor
             Log("Do \(self.rawValue)")
@@ -870,10 +876,10 @@ public enum Command: String, CommandProtocol {
                  Chained Next Command
                  FS or FP
                  */
-                LogCommunicate("result: Found")
+                Log("result: Found")
                 return operandUnification(operands: [fingerTableIndex, targetNode.dhtAddressAsHexString.toString, precedingNode.dhtAddressAsHexString.toString, predecessorsSuccessorNode.dhtAddressAsHexString.toString, "found"])
             } else {
-                LogCommunicate("result: Not Found")
+                Log("result: Not Found")
                 /*
                  Send findPredecessor Command to Preceding Node.
                  */
@@ -908,11 +914,11 @@ public enum Command: String, CommandProtocol {
             LogEssential(operandArray[4])    //4: result: "found" or "not"
             let fingerTableIndex = operandArray[0]
             guard let targetNode = Node(dhtAddressAsHexString: operandArray[1]), let precedingNode = Node(dhtAddressAsHexString: operandArray[2]), let successorNode = Node(dhtAddressAsHexString: operandArray[3]) else {
-                LogCommunicate()
+                Log()
                 return nil
             }
             let result = operandArray[4]
-            LogCommunicate()
+            Log()
             return operandUnification(operands: [fingerTableIndex, targetNode.dhtAddressAsHexString.toString, precedingNode.dhtAddressAsHexString.toString, successorNode.dhtAddressAsHexString.toString, result])
         case .queryYourSuccessor :  //MARK: queryYourSuccessor
             Log("Do \(self.rawValue)")
@@ -932,10 +938,10 @@ public enum Command: String, CommandProtocol {
             LogEssential(operandArray[3])    //3: successor's overlayNetwork Address
             let fingerTableIndex = operandArray[0]
             guard let targetNode = Node(dhtAddressAsHexString: operandArray[1]), let precedingNode = Node(dhtAddressAsHexString: operandArray[2]),  let successorNode = Node(dhtAddressAsHexString: operandArray[3]) else {
-                LogCommunicate()
+                Log()
                 return nil
             }
-            LogCommunicate()
+            Log()
             return operandUnification(operands: [fingerTableIndex, targetNode.dhtAddressAsHexString.toString, precedingNode.dhtAddressAsHexString.toString, successorNode.dhtAddressAsHexString.toString, ""])
         case .queryYourPredecessor :  //MARK: queryYourPredecessor
             Log("Do \(self.rawValue)")
@@ -956,25 +962,25 @@ public enum Command: String, CommandProtocol {
             var fingerTableIndex: String?
             var predecessorNodeHexAddress: String?
             if operandArray.count == 2 {
-                LogCommunicate(operandArray[0])    //0: finger table index
-                LogCommunicate(operandArray[1])    //1: predecessor node hex address
+                Log(operandArray[0])    //0: finger table index
+                Log(operandArray[1])    //1: predecessor node hex address
                 fingerTableIndex = operandArray[0]
                 predecessorNodeHexAddress = operandArray[1]
             } else if operandArray.count == 1 {
-                LogCommunicate(operandArray[0])    //0: predecessor node hex address
+                Log(operandArray[0])    //0: predecessor node hex address
                 predecessorNodeHexAddress = operandArray[0]
             }
             guard let predecessorNodeHexAddress = predecessorNodeHexAddress, let predecessorNode = Node(dhtAddressAsHexString: predecessorNodeHexAddress) else {
-                LogCommunicate()
+                Log()
                 return nil
             }
             if predecessorNodeHexAddress == node.dhtAddressAsHexString.toString {
-                LogCommunicate("In Stable: Successor's Predecessor is Own Node.")
+                Log("In Stable: Successor's Predecessor is Own Node.")
             } else {
-                LogCommunicate()
+                Log()
                 node.replyStabilize(candidateSuccessor: predecessorNode)
             }
-            LogCommunicate()
+            Log()
             return nil
             //notify predecessor to successor node
         case .notifyPredecessor : //MARK: notifyPredecessor
@@ -985,7 +991,7 @@ public enum Command: String, CommandProtocol {
             node.notify(node: predecessorNode)
             return nil
         case .notifyPredecessorReply :
-            LogCommunicate()
+            Log()
             return nil
             
         /*
@@ -1035,7 +1041,7 @@ public enum Command: String, CommandProtocol {
             LogEssential(operandArray[0])    //1: dht address on Predecessor
             /* Reply from Successor Node At Init Finger Table */
             guard let successorsPreviousPredecessor = Node(dhtAddressAsHexString: operandArray[0]) else {
-                LogCommunicate()
+                Log()
                 return nil
             }
             LogEssential("(US_)predecessor: \(successorsPreviousPredecessor.dhtAddressAsHexString) from \(fromNodeOverlayNetworkAddress)")
@@ -1053,10 +1059,10 @@ public enum Command: String, CommandProtocol {
         case .updatePredecessorsSuccessorReply :
             Log("Do \(self.rawValue)")
             /* Reply from Successor Node At Init Finger Table */
-            LogCommunicate()
+            Log()
             return nil
         default:
-            LogCommunicate()
+            Log()
             return ""
         }
     }
