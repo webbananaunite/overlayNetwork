@@ -292,11 +292,6 @@ extension Data: OverlayNetworkBinaryAddress {
         self.count
     }
     //New Type Rewrite function
-//    public func decrementAsData(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (OverlayNetworkBinaryAddress, String) {
-//        var newData = self
-//        let sign = self.decrement(&newData, index: index, decrementValue: decrementValue, turnaround: turnaround, savedIndex: savedIndex, savedDecrementValue: savedDecrementValue, carryDown: carryDown)
-//        return (newData, sign)
-//    }
     public func decrementAsData(index: UInt, decrementValue: UInt8, turnaround: Bool? = nil, savedIndex: UInt? = nil, savedDecrementValue: UInt8? = nil, carryDown: Bool = false) -> (OverlayNetworkBinaryAddress, String) {
         return self.decrement(index: index, decrementValue: decrementValue, turnaround: turnaround, savedIndex: savedIndex, savedDecrementValue: savedDecrementValue, carryDown: carryDown)
     }

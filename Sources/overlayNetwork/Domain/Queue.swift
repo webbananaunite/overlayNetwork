@@ -69,9 +69,8 @@ open class Job {
     var nextJobToken: String?
     var previousJobToken: String?
 
-//    public init(command: CommandProtocol, operand: String, from fromOverlayNetworkAddress: OverlayNetworkAddressAsHexString, to toOverlayNetworkAddress: OverlayNetworkAddressAsHexString, type: Type, token: String? = nil, previousJobToken: String? = nil) {
     public init(command: CommandProtocol, operand: String, from fromOverlayNetworkAddress: OverlayNetworkAddressAsHexString, to toOverlayNetworkAddress: OverlayNetworkAddressAsHexString, type: Type, token: String? = nil, previousJobToken: String? = nil) {
-        Log(token)
+        Log(token as Any)
         self.time = Time.utcTimeString  //will update at setting token.
         self.command = command
         self.operand = operand
@@ -165,16 +164,16 @@ open class Queue {
         } else {
             matchedJob = fetchJob(token: token)
         }
-        Log(matchedJob?.token)
-        Log(matchedJob?.time)
-        Log(matchedJob?.command)
+        Log(matchedJob?.token as Any)
+        Log(matchedJob?.time as Any)
+        Log(matchedJob?.command as Any)
         if let matchedJob = matchedJob {
             matchedJob.status = .dequeued
             self.replace(before: matchedJob, after: matchedJob)
             Log(matchedJob.command)
             return (matchedJob, .notFound)
         }
-        Log(matchedJob?.command)
+        Log(matchedJob?.command as Any)
 
         return (nil, .notFound)
     }
@@ -246,8 +245,8 @@ open class Queue {
         } else {
             matchedJob = fetchJob(token: token)
         }
-        Log(matchedJob?.token)
-        Log(matchedJob?.time)
+        Log(matchedJob?.token as Any)
+        Log(matchedJob?.time as Any)
         if let matchedJob = matchedJob {
             matchedJob.status = status
             self.replace(before: matchedJob, after: matchedJob)
@@ -264,8 +263,8 @@ open class Queue {
         } else {
             matchedJob = fetchJob(token: token)
         }
-        Log(matchedJob?.token)
-        Log(matchedJob?.time)
+        Log(matchedJob?.token as Any)
+        Log(matchedJob?.time as Any)
         if let matchedJob = matchedJob {
             matchedJob.result = result
             self.replace(before: matchedJob, after: matchedJob)
@@ -363,7 +362,7 @@ open class Queue {
     }
 
     open func push(queue: Job) {
-        self.push(queue: queue)
+        self.queues.append(queue)
     }
     
     open func printQueueEssential() {
@@ -379,11 +378,11 @@ open class Queue {
             print("toOverlayNetworkAddress:\(queue.element.toOverlayNetworkAddress)")
             print("operand:\(queue.element.operand)")
             print("type:\(queue.element.type)")
-            print("result:\(queue.element.result)")
+            print("result:\(String(describing: queue.element.result))")
             print("status:\(queue.element.status)")
             print("token:\(queue.element.token)")
-            print("previousJobToken:\(queue.element.previousJobToken)")
-            print("nextJobToken:\(queue.element.nextJobToken)")
+            print("previousJobToken:\(String(describing: queue.element.previousJobToken))")
+            print("nextJobToken:\(String(describing: queue.element.nextJobToken))")
             print("\n")
         }
         #endif

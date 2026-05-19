@@ -80,28 +80,6 @@ open class Dht {
      UpperNode ... ownNode ... LowerNode
      
      */
-
-    /*
-     #unused
-     babyNode query to babySitterNode
-     */
-    class func queryNodeAddress() -> [String] {
-//        guard let babySitterNode = getBabysitterNode(ownIpAddressString: nil) else {
-//            return []
-//        }
-//        Log(babySitterNode)//192.168.11.4
-        
-//        signal(toNode: toNode, babyNode: babyNode, description: description)
-
-        
-        //communicate to bybySitterNode by socket
-        
-        
-        
-        
-        return []
-    }
-
     func signal(toNode: Node, babyNode: Node, description: String) {
         //#pending
         //socket communication to toAddress
@@ -149,7 +127,6 @@ open class Dht {
      ↑先頭からのバイト境界で末尾を判断する
      */
     class func hash(ip: IpaddressV4Protocol, port: Int) -> (String?, Data)? {
-//        let preHashData = ip.toString() + ":" + String(port)
         let preHashData = [ip.toString(), String(port), String(Int.random(in: Int.min...Int.max)), Date.now.utcTimeString].shuffled().reduce(into: "") {
             $0 += $1
         }
@@ -235,12 +212,7 @@ open class Dht {
 
     class func getBootNodesAndStagingServerAddress() -> ([String], [String]) {
         Log()
-//        guard let answer = Dns.fetchTXTRecords(domain) else {
-//            return ([], [])
-//        }
         guard let answer = Dns.getservers(domain) else {
-//        var answer = String(repeating: " ", count: 1024)
-//        guard let answer = Dns.getservers(domain, answer: &answer) else {
             Log()
             return ([], [])
         }

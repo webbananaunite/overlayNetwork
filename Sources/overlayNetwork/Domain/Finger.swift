@@ -41,7 +41,6 @@ import Foundation
  */
 public class Finger: Equatable {
     public static func == (lhs: Finger, rhs: Finger) -> Bool {
-//        guard let lhsNode = lhs.node, let rhsNode = rhs.node else {
         guard let lhsNode = lhs.successorNodeCandidates[0], let rhsNode = rhs.successorNodeCandidates[0] else {
             return false
         }
@@ -60,18 +59,12 @@ public class Finger: Equatable {
         archivedDirectory + archiveFile
     }
     
-//    public init?(start: Node, interval: [Node], node: Node?) {
     public init?(start: Node, interval: [Node], nodes: [Node?]?) {
         self.start = start
         self.interval = interval
-        
-//        self.node = node
-//        self.successorNodeCandidates += [node]
-//        self.addSuccessorNodeAsFirstCandidates(node: node)
         if let nodes = nodes {
             self.successorNodeCandidates = nodes
         }
-
         if !FileManager.default.fileExists(atPath: Finger.archivedDirectory) {
             do {
                 try FileManager.default.createDirectory(atPath: Finger.archivedDirectory, withIntermediateDirectories: true, attributes: nil)
@@ -86,21 +79,15 @@ public class Finger: Equatable {
             if interval.count > 2 {interval = oldValue}
         }
     }
-//    var node: Node?
     /*
      Sortable Queue As Successor Node Candidates.
      */
-//    var nodes = [Node?]()
     var successorNodeCandidates = [Node?]()
 
     public func addSuccessorNodeAsFirstCandidates(node: Node?) {
         Log()
         self.successorNodeCandidates.insert(node, at: 0)
     }
-//    public func successorCandidateNodes(node: [Node]) {
-//        Log()
-//        self.successorNodeCandidates = node
-//    }
     public var firstSuccessorNode: Node? {
         guard self.successorNodeCandidates.count >= 1 else {
             return nil
@@ -144,20 +131,6 @@ public class Finger: Equatable {
     public func storeUp(index: Int) {
         do {
             let url = URL(fileURLWithPath: Finger.archiveFilePath)
-            
-//            let jsonData: Data = """
-//            {
-//              "index": \(index),
-//              "dhtAddressAsHexString": {
-//                "start": "\(self.start.dhtAddressAsHexString)",
-//                "interval": [
-//                    "\(self.interval[0].dhtAddressAsHexString)",
-//                    "\(self.interval[1].dhtAddressAsHexString)"
-//                ],
-//                "node": "\(self.node?.dhtAddressAsHexString ?? "")"
-//              }
-//            },\n
-//            """.utf8DecodedData!
             var jsonData: Data = """
             {
               "index": \(index),
@@ -181,10 +154,6 @@ public class Finger: Equatable {
                 return $0 + addCharacter
             }.utf8DecodedData!
             
-//            jsonData += """
-//              }
-//            },\n
-//            """.utf8DecodedData!
             jsonData += """
                 ]
               }

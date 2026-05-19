@@ -21,61 +21,6 @@ import ucrt
 
 import Resolving
 
-//class Dns {
-//    
-////    fileprivate var state = __res_9_state()
-//    fileprivate var state = __res_state()   //extern struct __res_state _res;
-//
-//    public init() {
-////        res_9_ninit(&state)
-//        res_init()
-//    }
-//    
-//    deinit {
-////        res_9_ndestroy(&state)
-//        free(state)
-//    }
-//
-//    /*
-//     __res_state._u._ext.nsaddrs
-//     __res_state._u._ext.nsmap
-//     
-//     ns_rr_rdata()
-//     ↓
-//     dn_expand()
-//     ↓
-//     gethostbyname()
-//
-//     #now
-//     */
-////    public func getservers() -> [res_9_sockaddr_union] {
-//    public func getservers() -> [__res_state]? {
-//        let maxServers = 3
-//        var servers = [res_9_sockaddr_union](repeating: res_9_sockaddr_union(), count: maxServers)
-//        let found = Int(res_9_getservers(&state, &servers, Int32(maxServers)))
-//        
-//        // filter is to remove the erroneous empty entry when there's no real servers
-//        return Array(servers[0 ..< found]).filter() { $0.sin.sin_len > 0 }
-//    }
-//
-////    public func getnameinfo(_ s: res_9_sockaddr_union) -> String {
-//    public func getnameinfo(_ s: sockaddr_in6) -> String {
-//        var s = s
-//        var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-//        
-//        let _ = withUnsafePointer(to: &s) {
-//            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-////                Darwin.getnameinfo($0, socklen_t(s.sin.sin_len),
-////                                   &hostBuffer, socklen_t(hostBuffer.count),
-////                                   nil, 0,
-////                                   NI_NUMERICHOST)
-//                gethostbyname($0)
-//            }
-//        }
-//        
-//        return String(cString: hostBuffer)
-//    }
-//}
 /*
  Thank:
  https://stackoverflow.com/a/26480097
@@ -104,9 +49,9 @@ struct Dns {
         var msg: res_9_ns_msg = res_9_ns_msg()
         var rr: res_9_ns_rr = res_9_ns_rr()
         
-        var state = __res_9_state()   //res_9_nquery()のとき使う
+//        var state = __res_9_state()   //res_9_nquery()のとき使う
+        var state = __res_9_state().pointee   //res_9_nquery()のとき使う
         res_9_ninit(&state)
-//        res_9_init()
 #elseif os(Linux)
         var msg: ns_msg = ns_msg()
         var rr: ns_rr = ns_rr()
@@ -166,7 +111,6 @@ struct Dns {
             /*
              #define ns_rr_rdata(rr)    ((rr).rdata + 0)
              */
-//            let rd: u_char = ns_rr_rdata(rr)
             let rd = (rr.rdata + 0)
             
             // the first byte is the length of the data

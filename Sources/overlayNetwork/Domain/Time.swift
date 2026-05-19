@@ -19,7 +19,6 @@ public struct Time {
             dateFormatter.formatOptions.insert(.withFractionalSeconds)//ms
 
             dateFormatter.timeZone = TimeZone(identifier: "UTC")
-            //            let str = iso8601DateFormatter.string(from: Date())
             let utcTimeString = dateFormatter.string(from: Date())
             Log(utcTimeString)  //2022-09-02T08:38:42.940Z
             return utcTimeString

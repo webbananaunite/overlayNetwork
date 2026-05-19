@@ -47,7 +47,6 @@ extension UInt16 {
 }
 
 class DataPacker {
-//    class func pack(format: String, values: AnyObject...) -> String? {
     class func pack(format: String, values: Any...) -> String? {
         var bytes = [UInt8]()
         var index = 0
@@ -83,7 +82,6 @@ class DataPacker {
                 Log("Unrecognized character: \(char)")
             }
         }
-//        return String.stringWithBytes(bytes, length: bytes.count, encoding: NSASCIIStringEncoding)
         return String(bytes: bytes, encoding: .ascii)
     }
 }
