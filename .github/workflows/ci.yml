@@ -25,8 +25,6 @@ jobs:
   linux-cross-build:
     name: Cross-build Linux static SDK
     runs-on: macos-15
-    env:
-      TOOLCHAINS: org.swift.612202505261a
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -55,8 +53,7 @@ jobs:
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
           swiftly use 6.1.2 --global-default
           hash -r
-          which swift
-          swift --version
+          "$HOME/Library/Developer/Toolchains/swift-6.1.2-RELEASE.xctoolchain/usr/bin/swift" --version
 
       - name: Restore Static Linux SDK cache
         id: static-linux-sdk-cache
@@ -70,7 +67,7 @@ jobs:
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
           hash -r
-          swift sdk install \
+          "$HOME/Library/Developer/Toolchains/swift-6.1.2-RELEASE.xctoolchain/usr/bin/swift" sdk install \
             https://download.swift.org/swift-6.1.2-release/static-sdk/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz \
             --checksum df0b40b9b582598e7e3d70c82ab503fd6fbfdff71fd17e7f1ab37115a0665b3b
 
@@ -78,11 +75,11 @@ jobs:
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
           hash -r
-          swift sdk list
+          "$HOME/Library/Developer/Toolchains/swift-6.1.2-RELEASE.xctoolchain/usr/bin/swift" sdk list
 
       - name: Cross-build package for Linux
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
           hash -r
-          swift --version
-          swift build -v --swift-sdk x86_64-swift-linux-musl --build-path .build/linux-musl
+          "$HOME/Library/Developer/Toolchains/swift-6.1.2-RELEASE.xctoolchain/usr/bin/swift" --version
+          "$HOME/Library/Developer/Toolchains/swift-6.1.2-RELEASE.xctoolchain/usr/bin/swift" build -v --swift-sdk x86_64-swift-linux-musl --build-path .build/linux-musl
