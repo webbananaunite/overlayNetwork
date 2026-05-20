@@ -25,6 +25,8 @@ jobs:
   linux-cross-build:
     name: Cross-build Linux static SDK
     runs-on: macos-15
+    env:
+      TOOLCHAINS: org.swift.612202505261a
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
