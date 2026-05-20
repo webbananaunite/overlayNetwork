@@ -33,8 +33,10 @@ jobs:
         id: swiftly-cache
         uses: actions/cache@v5
         with:
-          path: ~/.swiftly
-          key: ${{ runner.os }}-swiftly-6.1.2
+          path: |
+            ~/.swiftly
+            ~/Library/Developer/Toolchains
+          key: ${{ runner.os }}-swiftly-6.1.2-v2
 
       - name: Install Swift 6.1.2 toolchain
         if: steps.swiftly-cache.outputs.cache-hit != 'true'
@@ -48,7 +50,7 @@ jobs:
       - name: Select Swift 6.1.2 toolchain
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
-          swiftly use 6.1.2
+          swiftly use 6.1.2 --global-default
           swift --version
 
       - name: Restore Static Linux SDK cache
