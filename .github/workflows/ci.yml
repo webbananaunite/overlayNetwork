@@ -24,14 +24,14 @@ jobs:
           # Appleプラットフォーム（iOS/macOS共用ロジック）向けのビルド環境
           - platform: Apple-Platform
             os: macos-15
-            swift-version: '6.0'
+            swift-version: '5.10'
             container: null # Mac環境ではコンテナを使用しない
             
           # Linux向けのビルド環境
           - platform: Linux
             os: ubuntu-latest
-            swift-version: '6.0'
-            container: "swift:6.0" # Linux環境ではSwift公式コンテナを使用
+            swift-version: '5.10'
+            container: "swift:5.10" # Linux環境ではSwift公式コンテナを使用
 
     steps:
       - name: Checkout repository
