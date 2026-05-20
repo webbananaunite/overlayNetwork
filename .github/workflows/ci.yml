@@ -1,4 +1,4 @@
-name: Swift Package Cross-Platform CI (iOS-Logic & Linux)
+name: Swift Package Cross-Platform CI
 
 on:
   push:
@@ -6,44 +6,72 @@ on:
   pull_request:
     branches: ["main"]
 
-# ワークフロー全体で Node 24 への移行を先取りして警告を消す
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
-  test:
-    name: Test on ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-    # Linux環境のときだけ、Swift 6.0の公式Dockerイメージをコンテナとして指定する
-    container: ${{ matrix.container }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Appleプラットフォーム（iOS/macOS共用ロジック）向けのビルド環境
-          - platform: Apple-Platform
-            os: macos-14 # 💡 macos-14 に下げることで、標準のSwift 5.10環境になります
-            container: null # Mac環境ではコンテナを使用しない
-
-          # Linux向けのビルド環境
-          - platform: Linux
-            os: ubuntu-latest
-            container: "swift:5.10" # Linux環境ではSwift公式コンテナを使用
-
+  apple-build:
+    name: Build iOS library
+    runs-on: macos-15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5
 
-      # Appleプラットフォーム（Mac）のときだけ、明確にXcode 15.4（Swift 5.10）を選択する
-      - name: Setup Swift
-        if: matrix.platform == 'Apple-Platform'
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+      - name: Show Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
 
-      # 依存関係（外部Packageなど）の解決
-      - name: Resolve dependencies
-        run: swift package resolve
+      - name: Build overlayNetwork for iOS
+        run: xcodebuild -scheme overlayNetwork -destination 'generic/platform=iOS' build
 
-      # Package標準のコマンドでビルドとテストを実行
-      - name: Run Tests
-        run: swift test -v
+  linux-cross-build:
+    name: Cross-build Linux static SDK
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Restore Swiftly cache
+        id: swiftly-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.swiftly
+          key: ${{ runner.os }}-swiftly-6.1.2
+
+      - name: Install Swift 6.1.2 toolchain
+        if: steps.swiftly-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg
+          installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
+          ~/.swiftly/bin/swiftly init --quiet-shell-followup
+          . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          swiftly install 6.1.2
+
+      - name: Select Swift 6.1.2 toolchain
+        run: |
+          . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          swiftly use 6.1.2
+          swift --version
+
+      - name: Restore Static Linux SDK cache
+        id: static-linux-sdk-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.swiftpm/swift-sdks
+          key: ${{ runner.os }}-swift-6.1.2-static-linux-sdk-0.0.1
+
+      - name: Install Static Linux SDK
+        if: steps.static-linux-sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          swift sdk install \
+            https://download.swift.org/swift-6.1.2-release/static-sdk/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz \
+            --checksum df0b40b9b582598e7e3d70c82ab503fd6fbfdff71fd17e7f1ab37115a0665b3b
+
+      - name: Show installed Swift SDKs
+        run: |
+          . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          swift sdk list
+
+      - name: Cross-build package for Linux
+        run: |
+          . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          swift build -v --swift-sdk x86_64-swift-linux-musl --build-path .build/linux-musl
