@@ -45,25 +45,29 @@ jobs:
           installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
           ~/.swiftly/bin/swiftly init --quiet-shell-followup
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          hash -r
           swiftly install 6.1.2
 
       - name: Select Swift 6.1.2 toolchain
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
           swiftly use 6.1.2 --global-default
+          hash -r
+          which swift
           swift --version
 
       - name: Restore Static Linux SDK cache
         id: static-linux-sdk-cache
         uses: actions/cache@v5
         with:
-          path: ~/.swiftpm/swift-sdks
-          key: ${{ runner.os }}-swift-6.1.2-static-linux-sdk-0.0.1
+          path: ~/Library/org.swift.swiftpm/swift-sdks
+          key: ${{ runner.os }}-swift-6.1.2-static-linux-sdk-0.0.1-v2
 
       - name: Install Static Linux SDK
         if: steps.static-linux-sdk-cache.outputs.cache-hit != 'true'
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          hash -r
           swift sdk install \
             https://download.swift.org/swift-6.1.2-release/static-sdk/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz \
             --checksum df0b40b9b582598e7e3d70c82ab503fd6fbfdff71fd17e7f1ab37115a0665b3b
@@ -71,9 +75,12 @@ jobs:
       - name: Show installed Swift SDKs
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          hash -r
           swift sdk list
 
       - name: Cross-build package for Linux
         run: |
           . "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+          hash -r
+          swift --version
           swift build -v --swift-sdk x86_64-swift-linux-musl --build-path .build/linux-musl
