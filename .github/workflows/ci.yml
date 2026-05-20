@@ -22,6 +22,22 @@ jobs:
       - name: Build overlayNetwork for iOS
         run: xcodebuild -scheme overlayNetwork -destination 'generic/platform=iOS' build
 
+  unit-test:
+    name: Run Swift package tests
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Run tests
+        run: swift test -v
+
   linux-cross-build:
     name: Cross-build Linux static SDK
     runs-on: macos-15
