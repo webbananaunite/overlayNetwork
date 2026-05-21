@@ -71,6 +71,17 @@ CI 設定の構文確認:
 ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "YAML OK"'
 ```
 
+## ビルド出力ディレクトリのルール
+
+- ローカル検証では、スナップショット保存時にプロジェクト容量が増えないよう、可能な限りプロジェクト外の `~/appOutput/<repo名>` を `--build-path` に指定する。
+- Linux Static SDK のローカルクロスビルドでは、例として次のように実行する。
+
+```sh
+swift build -v --swift-sdk x86_64-swift-linux-musl --build-path ~/appOutput/overlayNetwork
+```
+
+- CI では個人環境の home directory や絶対パスに依存しない。GitHub Actions では引き続き `.build/linux-musl` を使う。
+
 ## 条件付きで実行してよい操作
 
 - ユーザーが明示的に依頼した場合のみ、ファイル編集、コミット、push、PR 作成を行う。
