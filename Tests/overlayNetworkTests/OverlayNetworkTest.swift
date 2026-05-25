@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import blocks
+@testable import overlayNetwork
 //@testable import overlayNetworkObjc
 
 final class OverlayNetworkTest: XCTestCase {
@@ -25,7 +25,7 @@ final class OverlayNetworkTest: XCTestCase {
          */
         let socket = Socket()
         let rawbuf: UnsafeMutableRawBufferPointer = UnsafeMutableRawBufferPointer.allocate(byteCount: Socket.MTU, alignment: MemoryLayout<CChar>.alignment)
-        guard let ownNode = Node(ownNode: IpaddressV4.null, port: 0, premiumCommand: blocks.Command.other) else {
+        guard let ownNode = Node(ownNode: IpaddressV4.null, port: 0, premiumCommand: Command.other) else {
             return
         }
         socket.start(startMode: .registerMeAndIdling, tls: false, rawBufferPointer: rawbuf, node: ownNode, inThread: true, notifyOwnAddress: {
