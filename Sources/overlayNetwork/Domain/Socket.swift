@@ -849,6 +849,24 @@ open class Socket {
 #endif
         return (true, socketStatusFlags)
     }
+
+    func isConnectSucceededError(_ errorNum: Int32) -> Bool {
+        return errorNum == 0 || errorNum == EISCONN
+    }
+
+    func isConnectPendingError(_ errorNum: Int32) -> Bool {
+        return errorNum == EINPROGRESS || errorNum == EALREADY || errorNum == EWOULDBLOCK
+    }
+
+    func socketPendingError(_ sockhandle: Int32) -> Int32? {
+        var socketError: Int32 = 0
+        var resultLength = socklen_t(MemoryLayout<Int32>.size)
+        if getsockopt(sockhandle, SOL_SOCKET, SO_ERROR, &socketError, &resultLength) < 0 {
+            LogPosixError()
+            return nil
+        }
+        return socketError
+    }
     
     /*
      Deploy BSD Socket and Connect to Peer Node / Signaling Server.
@@ -979,11 +997,14 @@ open class Socket {
                 }
             }
             Log("\(connectStatus) \(errno)")
-            if connectStatus == 0 || (connectStatus == -1 && errno == 56) {
+            if connectStatus == 0 || isConnectSucceededError(errno) {
                 Log("connection Succeeded.")
                 connectionSucceeded = true
+            } else if isConnectPendingError(errno) {
+                Log("Connection Pending.")
+                connectionSucceeded = false
             } else {
-                Log("Connection Failed / Async Connecting...")
+                Log("Connection Failed.")
                 connectionSucceeded = false
             }
             LogPosixErrorEssential(description: "\(destination.ip) \(destination.port)")
@@ -1020,8 +1041,10 @@ open class Socket {
                 }
             }
             Log("\(connectStatus) \(errno)")
-            if connectStatus == 0 || (connectStatus == -1 && errno == 56) {
+            if connectStatus == 0 || isConnectSucceededError(errno) {
                 connectionSucceeded = true
+            } else if isConnectPendingError(errno) {
+                connectionSucceeded = false
             } else {
                 connectionSucceeded = false
             }
@@ -1553,6 +1576,16 @@ open class Socket {
              0.5秒ごとにselectを繰り返す
              */
             var active_fd_set = fd_set()
+            func addSocketToFdSet(_ socketHandle: Int32, active_fd_set: inout fd_set) {
+                guard socketHandle > 0 else {
+                    return
+                }
+    #if os(iOS) || os(macOS)
+                __darwin_fd_set(socketHandle, &active_fd_set)
+    #elseif os(Linux)
+                _fd_set(socketHandle: socketHandle, active_fd_set: &active_fd_set)
+    #endif
+            }
             guard let peerTypes = self.mode.stack.first?.peerTypes else {
                 Log()
                 return
@@ -1562,11 +1595,7 @@ open class Socket {
                 self.socketHandles[peerType]?.forEach {
                     $0.value.values.forEach {
                         let socketHandle = $0.socketFd
-#if os(iOS) || os(macOS)
-                        __darwin_fd_set(socketHandle, &active_fd_set)
-#elseif os(Linux)
-                        _fd_set(socketHandle: socketHandle, active_fd_set: &active_fd_set)
-#endif
+                        addSocketToFdSet(socketHandle, active_fd_set: &active_fd_set)
                     }
                 }
             }
@@ -2025,40 +2054,17 @@ open class Socket {
                         if self.mode == .handshake, let (unConnectedOverlayNetworkAddress, unConnectedPeerType) = isThereUnConnectedSocket(socketHandles: socketHandlesByPeerType), let unConnectedOverlayNetworkAddress = unConnectedOverlayNetworkAddress, let unConnectedPeerType = unConnectedPeerType {
                             self.handshakeTimes += 1
                             Log(self.handshakeTimes)
-                            if self.handshakeTimes % 2 == 0 {
-                                Log()
-                                /*
-                                 Communicate with Signaling Server.
-                                 */
-                                if let sokcetHandlePairSignalingServer = self.socketHandles[.signalingServer]?[""]?[.public] {
-                                    bzero(&active_fd_set, MemoryLayout.size(ofValue: active_fd_set))
-                                    let socketHandle = sokcetHandlePairSignalingServer.socketFd
-                                    if socketHandle > 0 {
-#if os(iOS) || os(macOS)
-                                        __darwin_fd_set(socketHandle, &active_fd_set)
-#elseif os(Linux)
-                                        _fd_set(socketHandle: socketHandle, active_fd_set: &active_fd_set)
-#endif
-                                    }
-                                }
-                            } else {
-                                Log()
-                                /*
-                                 Handshaking with Peer Node.
-                                 */
-                                if let sokcetHandlePairByOverlayNetwork = self.socketHandles[unConnectedPeerType]?[unConnectedOverlayNetworkAddress.toString] {
-                                    bzero(&active_fd_set, MemoryLayout.size(ofValue: active_fd_set))
-                                    sokcetHandlePairByOverlayNetwork.values.forEach {
-                                        let socketHandle = $0.socketFd
-                                        if socketHandle > 0 {
-                                            //Log("\(socketHandle) (\($0.peerAddress)) into fd_set.")
-#if os(iOS) || os(macOS)
-                                            __darwin_fd_set(socketHandle, &active_fd_set)
-#elseif os(Linux)
-                                            _fd_set(socketHandle: socketHandle, active_fd_set: &active_fd_set)
-#endif
-                                        }
-                                    }
+                            bzero(&active_fd_set, MemoryLayout.size(ofValue: active_fd_set))
+                            /*
+                             During TCP hole punching, keep peer sockets and signaling socket visible
+                             to select() in the same turn so a short connect-completion window is not missed.
+                             */
+                            if let sokcetHandlePairSignalingServer = self.socketHandles[.signalingServer]?[""]?[.public] {
+                                addSocketToFdSet(sokcetHandlePairSignalingServer.socketFd, active_fd_set: &active_fd_set)
+                            }
+                            if let sokcetHandlePairByOverlayNetwork = self.socketHandles[unConnectedPeerType]?[unConnectedOverlayNetworkAddress.toString] {
+                                sokcetHandlePairByOverlayNetwork.values.forEach {
+                                    addSocketToFdSet($0.socketFd, active_fd_set: &active_fd_set)
                                 }
                             }
                         } else {
@@ -2066,14 +2072,7 @@ open class Socket {
                             socketHandlesByPeerType.forEach {
                                 $0.value.values.forEach {
                                     let socketHandle = $0.socketFd
-                                    if socketHandle > 0 {
-                                        //Log("\(socketHandle) (\($0.peerAddress)) into fd_set.")
-#if os(iOS) || os(macOS)
-                                        __darwin_fd_set(socketHandle, &active_fd_set)
-#elseif os(Linux)
-                                        _fd_set(socketHandle: socketHandle, active_fd_set: &active_fd_set)
-#endif
-                                    }
+                                    addSocketToFdSet(socketHandle, active_fd_set: &active_fd_set)
                                 }
                             }
                         }
@@ -2088,9 +2087,8 @@ open class Socket {
                  Find Max file descriptor number.
                  */
                 var maxfd: Int32 = 0
-                self.mode.stack.first?.peerTypes.forEach { peerType in
-                    //                    Log(peerType)
-                    self.socketHandles[peerType]?.forEach {
+                self.socketHandles.forEach {
+                    $0.value.forEach {
                         $0.value.values.forEach {
                             let sockhandle = $0.socketFd
                             maxfd = ((maxfd - 1) > sockhandle ? maxfd : sockhandle + 1)
@@ -2815,7 +2813,24 @@ open class Socket {
                                     Log($0.peerAddress)
                                     let writableSocket = $0.socketFd
                                     Log(writableSocket)
-                                    if let sendHandshake = sendHandshake {
+                                    var socketConnectSucceeded = false
+                                    if let socketError = self.socketPendingError(writableSocket) {
+                                        Log("socketFd:\(writableSocket) SO_ERROR:\(socketError) \(String(cString: strerror(socketError)))")
+                                        if self.isConnectSucceededError(socketError) {
+                                            socketConnectSucceeded = true
+                                        } else if !self.isConnectPendingError(socketError) {
+                                            let (_, addressSpace, overlayNetworkAddress) = self.findIpAndAddressSpace(socketFd: writableSocket)
+                                            if let addressSpace = addressSpace, let overlayNetworkAddress = overlayNetworkAddress?.toString {
+                                                let failCounter = self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connectionFailCounter ?? 0
+                                                self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected = false
+                                                self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connectionFailCounter = failCounter + 1
+                                                self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.socketFd = -1
+                                            }
+                                            let closeRet = close(writableSocket)
+                                            Log(closeRet)
+                                        }
+                                    }
+                                    if socketConnectSucceeded, let sendHandshake = sendHandshake {
                                         /*
                                          SO_NOSIGPIPE: NOT generate signal as broken communication pipe (must set the flag on setsockopt().)
                                          */
