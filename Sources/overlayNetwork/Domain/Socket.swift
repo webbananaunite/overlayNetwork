@@ -754,7 +754,8 @@ open class Socket {
     var handshakeTimes = 0
     var nodePerformances = [TimeInterval]()    //小さい値ほど高性能
     var nodePerformance: TimeInterval?    //小さい値ほど高性能
-    var diffPerformance: UInt32 = 0
+//    var diffPerformance: UInt32 = 0
+    var diffPerformance = 0.0
 
     public enum AddressSpace {
         case `public`
@@ -1767,7 +1768,8 @@ open class Socket {
                     self.sleepSeconds = 0.0
                 } else {
                     if self.mode == .handshake {
-                        self.sleepSeconds += Double.random(in: 0...0.01)
+//                        self.sleepSeconds += Double.random(in: 0...0.01)
+                        self.sleepSeconds = 0.05
                     }
                 }
                 self.previousMode = self.mode
@@ -1784,6 +1786,7 @@ open class Socket {
                             Log("\(writableSocket): \(findipResult as Any)")
                             if let _ = findipResult, let addressSpace = addressSpace {
                                 self.socketHandles[Mode.PeerType.peerNode]?[overlayNetworkAddress]?[addressSpace]?.connected = false
+                                LogCommunicate("\(overlayNetworkAddress) \(self.socketHandles[Mode.PeerType.peerNode]?[overlayNetworkAddress]?[addressSpace]?.connected)")
                             }
                         }
                         self.inTransitionSignalingToHandshake = nil
@@ -2187,12 +2190,17 @@ open class Socket {
                 
                 Log(node.ipAndPortString as Any)
                 node.printSocketQueue() //MARK: r/w dequeue
-                if self.mode == .registerMeAndIdling && self.nodePerformance == nil {
-                    self.nodePerformances += [Date().timeIntervalSince(takeTimeForNodePerformance)]  //小さければ高パフォーマンス
-                    Log(self.nodePerformances as Any)
+//                if self.mode == .registerMeAndIdling && self.nodePerformance == nil {
+//                    self.nodePerformances += [Date().timeIntervalSince(takeTimeForNodePerformance)]  //小さければ高パフォーマンス
+//                    LogEssential(self.nodePerformances as Any)
+//                }
+                if self.mode == .registerMeAndIdling {
+                    self.nodePerformance = Date().timeIntervalSince(takeTimeForNodePerformance)  //小さければ高パフォーマンス
+//                    LogEssential(self.nodePerformance as Any)
                 }
                 if self.mode == .handshake {            //be needed critical time managing when Do NAT hole punching.
-                    usleep(UInt32(self.sleepSeconds * 1024 * 1024) + self.diffPerformance)    //Peer Node lower Performance than the Node cause wait more.
+//                    usleep(UInt32(self.sleepSeconds * 1024 * 1024) + self.diffPerformance)    //Peer Node lower Performance than the Node cause wait more.
+                    usleep(UInt32((self.sleepSeconds + self.diffPerformance) * 1024 * 1024))    //Peer Node lower Performance than the Node cause wait more.
                 } else if self.mode == .dequeueJob {    //Connect when as Received Node
                     usleep(self.avoidContaminationTime)   //wait 0.5 seconds as avoid contamination socket data.
                 } else {                                //when as regular mode
@@ -2239,6 +2247,7 @@ open class Socket {
                                 Log("Time Exceeded cause Make Socket Connection False.")
                                 self.socketHandles[.peerNode]?[$0.toOverlayNetworkAddress.toString]?[.public]?.connected = false
                                 self.socketHandles[.peerNode]?[$0.toOverlayNetworkAddress.toString]?[.private]?.connected = false
+                                LogCommunicate("\($0.toOverlayNetworkAddress.toString) \(self.socketHandles[.peerNode]?[$0.toOverlayNetworkAddress.toString]?[.public]?.connected)")
                             }
                         }
                     }
@@ -2305,6 +2314,7 @@ open class Socket {
                                     self.mode.stack[communicationProcess.phase].peerTypes.forEach { peerType in
                                         if (overlayNetworkAddress != "" && peerType == .peerNode) || (overlayNetworkAddress == "" && peerType == .signalingServer) {
                                             self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected = true
+                                            LogCommunicate("\(overlayNetworkAddress) \(self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected)")
                                         }
                                     }
                                 }
@@ -2464,9 +2474,12 @@ open class Socket {
                                             self.remote_knows_our_token = false
                                             self.handshakeTimes = 0
                                             var diff = self.nodePerformance?.distance(to: peerNodePerformance) ?? 0.0
-                                            diff = diff * 1024 * 1024
-                                            self.diffPerformance = UInt32(exactly: diff.rounded()) ?? 0
-                                            Log("\(String(describing: self.nodePerformance)) - \(peerNodePerformance) = \(diff) ..rounded. \(self.diffPerformance)")
+//                                            diff = diff * 1024 * 1024
+//                                            self.diffPerformance = UInt32(exactly: diff.rounded()) ?? 0
+//                                            LogEssential("\(String(describing: self.nodePerformance)) - \(peerNodePerformance) = \(diff) ..rounded. \(self.diffPerformance)")
+                                            self.diffPerformance = diff < 0.0 ? 0.0 : diff
+                                            LogEssential("\(peerNodePerformance) - \(String(describing: self.nodePerformance)) = \(diff) \(self.diffPerformance)")
+                                            
                                             Log("--- Will Add Socket for New Handshake as New Peer Communication -----------------------------------------------")
                                             Log(socketHandlesBy(peerTypes: peerTypes) as Any)
                                             returnValue = true
@@ -2588,16 +2601,17 @@ open class Socket {
                     Log(signalingCommands)
                     switch signalingCommands {
                     case _ where signalingCommands.contains(.registerMe):
-                        Log(self.nodePerformances.count)
+//                        Log(self.nodePerformances.count)
                         //MARK: w registerMe
                         signalingCommand = Mode.SignalingCommand.registerMe
                         skipSwitchMode = true
-                        if self.nodePerformances.count >= 10 {  //Wait Until Stable Node Performance.
-                            skipSwitchMode = false
-                            Log("\(skipSwitchMode) \(self.communicationProcess.phase) \(self.mode)")
-                            self.nodePerformance = self.nodePerformances.last
-                            Log(self.nodePerformance as Any)
+//                        if self.nodePerformances.count >= 10 {  //Wait Until Stable Node Performance.
+//                            skipSwitchMode = false
+//                            Log("\(skipSwitchMode) \(self.communicationProcess.phase) \(self.mode)")
+//                            self.nodePerformance = self.nodePerformances.last
+                            LogEssential(self.nodePerformance as Any)
                             if let nodePerformance = self.nodePerformance {
+                                skipSwitchMode = false
                                 //#pending
                                 //if let doneTime = communicationProcess.doneTime, doneTime.timeIntervalSinceNow < 4 * 60 {   //Not Over 4min since Done the process.
                                 //  Log(doneTime.timeIntervalSinceNow)
@@ -2651,7 +2665,7 @@ open class Socket {
                                 }
                                 Log(sendNodeInformationStatus ?? "nil")
                             }
-                        }
+//                        }
                     case _ where signalingCommands.contains(.okregisterMe):
                         //MARK: w okregisterMe
                         signalingCommand = Mode.SignalingCommand.okregisterMe
@@ -2825,6 +2839,7 @@ open class Socket {
                                                 self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected = false
                                                 self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connectionFailCounter = failCounter + 1
                                                 self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.socketFd = -1
+                                                LogCommunicate("\(overlayNetworkAddress) \(self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected)")
                                             }
                                             let closeRet = close(writableSocket)
                                             Log(closeRet)
@@ -2858,6 +2873,7 @@ open class Socket {
                                                 if let findipResult = findipResult, let addressSpace = addressSpace { Log("[c]Connection Successfull. \(findipResult)")
                                                     self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected = true
                                                     self.inTransitionSignalingToHandshake = writableSocket
+                                                    LogCommunicate("\(overlayNetworkAddress) \(self.socketHandles[peerType]?[overlayNetworkAddress]?[addressSpace]?.connected)")
                                                 }
                                             }
                                         }
